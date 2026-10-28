@@ -1,3 +1,4 @@
+<!-- Modified in this fork: describe dictionary-based Latin name rules and limitations. -->
 # Движок правил
 
 Вся детекция построена на regex (RE2) с опциональными пост-валидаторами. ML/LLM-проверок
@@ -33,7 +34,7 @@ type Rule struct {
 
 ## Источники правил
 
-1. `configs/guardrails_regex_rules.yaml` — ручные (~46 правил: ФИО (3 формата), паспорт, СНИЛС, ИНН, ОГРН, ОГРНИП, КПП, CVC, адрес, телефон, email, карта с
+1. `configs/guardrails_regex_rules.yaml` — ручные (~48 правил: ФИО (3 русских и 2 латинских формата), паспорт, СНИЛС, ИНН, ОГРН, ОГРНИП, КПП, CVC, адрес, телефон, email, карта с
    контрольными суммами — СНИЛС, ИНН физлица/юрлица, ОГРН/ОГРНИП, паспорт; платёжные
    карты с Luhn; IBAN mod-97; email'ы; телефоны РФ; IP).
 2. `configs/guardrails_regex_rules.gitleaks.generated.yaml` — ~220 правил,
@@ -42,6 +43,19 @@ type Rule struct {
 3. Кастомные правила из хранилища (созданы через API), подмешиваются в рантайме
    reloader'ом (`internal/service/rulesreload`), который триггерят сценарии
    `internal/usecases/rules`.
+
+Латинские ФИО относятся к `PERSONAL_DATA`, используют плейсхолдер `FIO` и вручную
+составленный словарь распространённых имён и транслитераций:
+
+- `pii.fio-en`: `John Smith`, `John Michael Smith`, `Pavel Sergeevich Manilov`,
+  `JOHN SMITH`, `John O'Connor`, `Anna Smith-Jones`. Фамилия начинается с заглавной
+  буквы; разделитель — пробелы/табуляция, но не перевод строки.
+- `pii.fio-en.dotted`: 2–3 компонента, например `pavel.manilov`, `Pavel.Manilov`,
+  `pavel.sergeevich.manilov`, независимо от регистра. Можно выключить отдельно.
+
+Оба правила — ASCII-эвристики, не гарантия обезличивания: редкие/Unicode-имена
+могут пропускаться, а похожий на имя домен `john.smith.com` маскируется избыточно.
+Полный email при пересечении по-прежнему обрабатывается правилом `pii.email`.
 
 Загрузчик (`rule/loader.go`): верхнеуровневый YAML-ключ `guardrails_regex_rules`,
 группы несут `data_type/name/display_name/...`, правила наследуют `Group`/`DataType` от
@@ -52,7 +66,7 @@ type Rule struct {
 
 ```mermaid
 flowchart TD
-    YAML["configs/guardrails_regex_rules.yaml<br/>46 ручных правил"] --> LOAD["rule.LoadAllFromFiles<br/>дедуп путей, отказ при дубле rule_id"]
+    YAML["configs/guardrails_regex_rules.yaml<br/>48 ручных правил"] --> LOAD["rule.LoadAllFromFiles<br/>дедуп путей, отказ при дубле rule_id"]
     GEN["configs/guardrails_regex_rules.gitleaks.generated.yaml<br/>220 сгенерированных правил"] --> LOAD
     LOAD --> FILES["fileRules — неизменяемый встроенный набор"]
     STORE["store.ListRules<br/>кастомные правила из API"] --> MERGE

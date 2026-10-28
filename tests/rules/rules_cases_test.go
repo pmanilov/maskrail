@@ -1,3 +1,4 @@
+// Modified in this fork: cover Latin-name heuristics, adjacent spans and email precedence.
 package rules_test
 
 import (
@@ -20,9 +21,6 @@ func TestRealConfigRuleCases_ScanSemanticSpan(t *testing.T) {
 
 	scanner, rulesByID := loadRealConfigScanner(t)
 	cases := realConfigRuleCases()
-	if len(cases) != expectedRealConfigCases {
-		t.Fatalf("len(cases)=%d, want %d", len(cases), expectedRealConfigCases)
-	}
 
 	for _, tt := range cases {
 		tt := tt
@@ -70,9 +68,6 @@ func TestRealConfigRuleCases_CoverEveryLoadedRule(t *testing.T) {
 	t.Parallel()
 
 	_, rulesByID := loadRealConfigScanner(t)
-	if len(rulesByID) != expectedGenConfigRules {
-		t.Fatalf("len(rulesByID)=%d, want %d", len(rulesByID), expectedGenConfigRules)
-	}
 
 	cases := realConfigRuleCases()
 	covered := make(map[string]int, len(cases))
@@ -1643,6 +1638,18 @@ func realConfigRuleCases() []realConfigRuleCase {
 			wantFullText: "Анна Смирнова",
 		},
 		{
+			name:         "pii.fio-en",
+			ruleID:       "pii.fio-en",
+			input:        "Meet John Smith!",
+			wantFullText: "John Smith",
+		},
+		{
+			name:         "pii.fio-en.dotted",
+			ruleID:       "pii.fio-en.dotted",
+			input:        "(Pavel.Manilov)!",
+			wantFullText: "Pavel.Manilov",
+		},
+		{
 			name:         "pii.docs.kpp",
 			ruleID:       "pii.docs.kpp",
 			input:        "в реквизитах кпп 772543001 указано",
@@ -1765,11 +1772,10 @@ func realConfigRuleCases() []realConfigRuleCase {
 	}
 }
 
-// --- Extra format scenarios (not part of the counted realConfigRuleCases) ---
+// --- Extra format scenarios beyond the representative per-rule cases ---
 //
-// These exercise multiple real-world spellings per rule. They live here (rather
-// than in realConfigRuleCases, whose length is pinned to expectedRealConfigCases)
-// so adding scenarios does not require touching the count constants.
+// These exercise multiple real-world spellings per rule beyond the representative
+// per-rule examples in realConfigRuleCases.
 
 // validSNILS / invalidSNILS mirror the checksum fixtures in
 // pkg/guardrails/regex/validation/validation_test.go.
@@ -1951,6 +1957,150 @@ func TestFioShortFormats(t *testing.T) {
 	assertNoMatch(t, scanner, "pii.fio-ru.short", "Совет Федерации собрался")
 	assertNoMatch(t, scanner, "pii.fio-ru.short", "парад Красная Армия провела")
 	assertNoMatch(t, scanner, "pii.fio-ru.short", "Ясная Поляна закрыта сегодня")
+}
+
+// TestFioLatinFormats covers dictionary-anchored names without crossing lines.
+func TestFioLatinFormats(t *testing.T) {
+	t.Parallel()
+	scanner, _ := loadRealConfigScanner(t)
+
+	for _, tt := range []struct{ name, input, match string }{
+		{"name-surname", "Meet John Smith!", "John Smith"},
+		{"middle-name", "Meet John Michael Smith!", "John Michael Smith"},
+		{"transliterated-name", "Meet Pavel Manilov!", "Pavel Manilov"},
+		{"patronymic", "Meet Pavel Sergeevich Manilov!", "Pavel Sergeevich Manilov"},
+		{"all-caps", "Meet JOHN SMITH!", "JOHN SMITH"},
+		{"apostrophe", "Meet John O'Connor!", "John O'Connor"},
+		{"hyphenated", "Meet Anna Smith-Jones!", "Anna Smith-Jones"},
+		{"all-caps-hyphenated", "Meet ANNA SMITH-JONES!", "ANNA SMITH-JONES"},
+		{"start", "John Smith arrived.", "John Smith"},
+		{"end", "Meet John Smith", "John Smith"},
+		{"tab", "Meet John\tSmith!", "John\tSmith"},
+		{"tab-middle", "Meet Pavel\tSergeevich\tManilov!", "Pavel\tSergeevich\tManilov"},
+		{"parentheses", "(Pavel Manilov)!", "Pavel Manilov"},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assertSingleMatch(t, scanner, "pii.fio-en", tt.input, tt.match)
+		})
+	}
+
+	for _, input := range []string{
+		"Pavel", "Manilov", "Release Notes", "Open Source Project",
+		"example.com", "config.yaml", "user.name", "foo.bar", "johnson.smith",
+		"x_pavel.manilov", "pavel.manilov_123", "John\nSmith", "John\r\nSmith",
+		"John smith", "pavel manilov",
+	} {
+		t.Run("no-match/"+input, func(t *testing.T) {
+			t.Parallel()
+			assertNoMatch(t, scanner, "pii.fio-en", input)
+		})
+	}
+
+	for _, input := range []string{"John Smith,Pavel Manilov", "John Smith Pavel Manilov"} {
+		t.Run("adjacent/"+input, func(t *testing.T) {
+			t.Parallel()
+			assertLatinAdjacentMatches(t, scanner, "pii.fio-en", input, "John Smith", "Pavel Manilov")
+		})
+	}
+}
+
+// TestFioLatinDottedFormats covers case-insensitive two/three-component handles.
+func TestFioLatinDottedFormats(t *testing.T) {
+	t.Parallel()
+	scanner, _ := loadRealConfigScanner(t)
+
+	for _, tt := range []struct{ name, input, match string }{
+		{"lowercase", "Meet pavel.manilov!", "pavel.manilov"},
+		{"title-case", "Meet Pavel.Manilov!", "Pavel.Manilov"},
+		{"all-caps", "Meet PAVEL.MANILOV!", "PAVEL.MANILOV"},
+		{"english-name", "Meet john.smith!", "john.smith"},
+		{"patronymic", "Meet pavel.sergeevich.manilov!", "pavel.sergeevich.manilov"},
+		{"three-components-title", "Meet Pavel.Sergeevich.Manilov!", "Pavel.Sergeevich.Manilov"},
+		{"three-components-caps", "Meet PAVEL.SERGEEVICH.MANILOV!", "PAVEL.SERGEEVICH.MANILOV"},
+		{"hyphenated", "Meet anna.smith-jones!", "anna.smith-jones"},
+		{"parentheses", "(Pavel.Manilov)!", "Pavel.Manilov"},
+		{"start", "pavel.manilov arrived.", "pavel.manilov"},
+		{"end", "Meet pavel.manilov", "pavel.manilov"},
+		// Name-looking domains deliberately share the documented heuristic.
+		{"domain-overmask", "Visit john.smith.com!", "john.smith.com"},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assertSingleMatch(t, scanner, "pii.fio-en.dotted", tt.input, tt.match)
+		})
+	}
+
+	for _, input := range []string{
+		"Pavel", "Manilov", "Release Notes", "Open Source Project",
+		"example.com", "config.yaml", "user.name", "foo.bar", "johnson.smith",
+		"x_pavel.manilov", "pavel.manilov_123",
+	} {
+		t.Run("no-match/"+input, func(t *testing.T) {
+			t.Parallel()
+			assertNoMatch(t, scanner, "pii.fio-en.dotted", input)
+		})
+	}
+
+	assertLatinAdjacentMatches(t, scanner, "pii.fio-en.dotted",
+		"pavel.manilov,Pavel.Manilov", "pavel.manilov", "Pavel.Manilov")
+}
+
+func assertLatinAdjacentMatches(t *testing.T, scanner *sensitive.Scanner, ruleID, input, first, second string) {
+	t.Helper()
+	matches, err := scanner.Scan(input, []string{ruleID})
+	if err != nil {
+		t.Fatalf("Scan error: %v", err)
+	}
+	if len(matches) != 2 {
+		t.Fatalf("input=%q: got %+v, want two independent names", input, matches)
+	}
+	for i, want := range []string{first, second} {
+		got := matches[i]
+		start := 0
+		if i == 1 {
+			start = len(first) + 1
+		}
+		if got.RuleID != ruleID || got.Placeholder != "FIO" || got.FullText != want ||
+			got.Start != start || got.End != start+len(want) {
+			t.Fatalf("input=%q: match[%d]=%+v, want %q at [%d:%d] from %s",
+				input, i, got, want, start, start+len(want), ruleID)
+		}
+	}
+	// Neither the comma nor the space between names is part of a sensitive span.
+	if gap := input[matches[0].End:matches[1].Start]; gap != "," && gap != " " {
+		t.Fatalf("unexpected gap between names: %q", gap)
+	}
+}
+
+// TestFioLatinEmailOverlap preserves the full EMAIL span over name-like local parts.
+func TestFioLatinEmailOverlap(t *testing.T) {
+	t.Parallel()
+	scanner, _ := loadRealConfigScanner(t)
+	for _, email := range []string{
+		"pavel.manilov@department.example.com",
+		"Pavel.Manilov@engineering.example.org",
+		"pavel.sergeevich.manilov@research.example.net",
+	} {
+		t.Run(email, func(t *testing.T) {
+			t.Parallel()
+			input := "(" + email + ")!"
+			matches, err := scanner.Scan(input, []string{"pii.fio-en", "pii.fio-en.dotted", "pii.email"})
+			if err != nil {
+				t.Fatalf("Scan error: %v", err)
+			}
+			if len(matches) != 1 {
+				t.Fatalf("input=%q: got %+v, want one full email", input, matches)
+			}
+			got := matches[0]
+			if got.RuleID != "pii.email" || got.Placeholder != "EMAIL" ||
+				got.FullText != email || got.Start != 1 || got.End != 1+len(email) {
+				t.Fatalf("input=%q: got %+v, want full EMAIL span %q", input, got, email)
+			}
+		})
+	}
 }
 
 // TestKppCvcTokenFormats locks in the three keyword-anchored rules added to

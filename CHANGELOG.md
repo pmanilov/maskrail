@@ -1,3 +1,4 @@
+<!-- Modified in this fork: record feature additions. -->
 # Changelog
 
 All notable changes to this project are documented here. The format is based on
@@ -7,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+
+- Dictionary-based Latin name detection (`pii.fio-en`, `pii.fio-en.dotted`):
+  space-separated names and case-insensitive dotted handles such as `pavel.manilov`.
+  These ASCII heuristics have limited dictionary coverage and can overmask domains.
 
 - **Standalone HTTP data plane**: guardrails-llm-filter now runs as a standalone service
   that clients call directly (`GUARDRAILS_LISTEN_ADDR`, default `:8080`). It

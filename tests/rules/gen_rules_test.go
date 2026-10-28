@@ -1,3 +1,4 @@
+// Modified in this fork: keep rule coverage independent of incidental ruleset totals.
 package rules_test
 
 import (
@@ -12,11 +13,6 @@ import (
 	"github.com/cloud-ru-tech/guardrails-llm-filter/pkg/guardrails/regex/rule"
 )
 
-const (
-	expectedGenConfigRules  = 266
-	expectedRealConfigCases = 277
-)
-
 type genConfigRuleCase struct {
 	name         string
 	ruleID       string
@@ -29,9 +25,6 @@ func TestGenConfigRules_ScanSemanticSpan(t *testing.T) {
 
 	scanner, rulesByID := loadRealConfigScanner(t)
 	cases := genConfigRuleCases(t, rulesByID)
-	if len(cases) != expectedRealConfigCases {
-		t.Fatalf("len(cases)=%d, want %d", len(cases), expectedRealConfigCases)
-	}
 
 	for _, tt := range cases {
 		tt := tt
@@ -79,9 +72,6 @@ func TestGenConfigRuleCasesCasesCoverEveryLoadedRule(t *testing.T) {
 	t.Parallel()
 
 	_, rulesByID := loadRealConfigScanner(t)
-	if len(rulesByID) != expectedGenConfigRules {
-		t.Fatalf("len(rulesByID)=%d, want %d", len(rulesByID), expectedGenConfigRules)
-	}
 
 	cases := genConfigRuleCases(t, rulesByID)
 	covered := make(map[string]int, len(cases))

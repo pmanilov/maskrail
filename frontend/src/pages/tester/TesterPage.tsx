@@ -1,7 +1,9 @@
+// Modified in this fork: copy only the last displayed scan's masked texts from the sandbox.
 import { Alert } from '@snack-uikit/alert';
-import { ButtonFilled } from '@snack-uikit/button';
+import { ButtonFilled, ButtonOutline } from '@snack-uikit/button';
 import { FieldSelect, FieldTextArea } from '@snack-uikit/fields';
-import { PlaySVG } from '@snack-uikit/icons';
+import { CopySVG, PlaySVG } from '@snack-uikit/icons';
+import { toaster } from '@snack-uikit/toaster';
 import { Typography } from '@snack-uikit/typography';
 import { useMemo, useState } from 'react';
 
@@ -23,6 +25,7 @@ export function TesterPage() {
   // The last successful scan survives a failed one: on error the result stays
   // on screen below the error strip instead of vanishing.
   const [lastResult, setLastResult] = useState<ScanResponse | null>(null);
+  const copyText = (lastResult?.masked_texts ?? []).join('\n');
 
   const dataTypesQuery = useDataTypes();
   const scan = useScan();
@@ -54,6 +57,30 @@ export function TesterPage() {
       },
       { onSuccess: (data) => setLastResult(data) },
     );
+  };
+
+  const handleCopyResult = async (): Promise<void> => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(copyText);
+      } else {
+        // Plain HTTP may not expose the Clipboard API.
+        const area = document.createElement('textarea');
+        try {
+          area.value = copyText;
+          area.style.position = 'fixed';
+          area.style.opacity = '0';
+          document.body.appendChild(area);
+          area.select();
+          if (!document.execCommand('copy')) throw new Error('execCommand copy failed');
+        } finally {
+          area.remove();
+        }
+      }
+      toaster.userAction.success({ label: t.tester.resultCopied });
+    } catch {
+      toaster.userAction.error({ label: t.tester.copyResultFailed });
+    }
   };
 
   const errorMessage =
@@ -114,7 +141,20 @@ export function TesterPage() {
           </div>
         </Card>
 
-        <Card title={t.tester.resultTitle}>
+        <Card
+          title={t.tester.resultTitle}
+          action={
+            lastResult !== null && copyText.length > 0 ? (
+              <ButtonOutline
+                size="xs"
+                appearance="neutral"
+                icon={<CopySVG />}
+                label={t.tester.copyResult}
+                onClick={handleCopyResult}
+              />
+            ) : undefined
+          }
+        >
           {errorMessage && <Alert appearance="error" icon description={errorMessage} />}
 
           {lastResult ? (

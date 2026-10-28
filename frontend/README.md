@@ -1,3 +1,4 @@
+<!-- Modified in this fork: document compatible same-origin management proxying. -->
 # Веб-консоль управления (frontend)
 
 Консоль управления для **guardrails-llm-filter**: SPA на React 18 + TypeScript + Vite.
@@ -42,6 +43,9 @@ Management-порт **неаутентифицирован по замыслу**
 
 Два процесса: Go-сервис (API) и dev-сервер Vite (hot reload). Dev-сервер Vite проксирует
 `/v1` в Go-сервис, поэтому вы получаете ту же same-origin-модель, что и в проде.
+Proxy сохраняет внешний `Host` (`changeOrigin: false`), чтобы management API мог
+проверять Origin мутаций. Для другого reverse proxy также сохраняйте браузерные
+`Host`, `Origin` и `Sec-Fetch-Site`; не удаляйте их для обхода проверки.
 
 ```sh
 # 1) запустить сервис с включённым management API

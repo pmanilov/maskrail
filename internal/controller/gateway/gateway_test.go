@@ -1,3 +1,4 @@
+// Modified in this fork: explicitly enable audit capture in gateway tests.
 package gateway_test
 
 import (
@@ -120,6 +121,7 @@ func testConfig(upstreamURL string) *config.Config {
 			Paths:          paths,
 		},
 		Upstream: config.Upstream{BaseURL: upstreamURL},
+		Audit:    config.Audit{StoreMaskedResponseTexts: true},
 	}
 }
 

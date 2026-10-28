@@ -1,3 +1,4 @@
+<!-- Modified in this fork: document update-only Redis retention and bounded SSE audit capture. -->
 # Хранилище
 
 Один выбираемый через env бэкенд (`GUARDRAILS_STORE_BACKEND`) обслуживает **четыре
@@ -146,11 +147,17 @@ postgres не меняется:
   индекс совпадали.
 - **Retention**: `GUARDRAILS_AUDIT_RETENTION` (по умолчанию 24h). Единственная чистка это
   истечение.
+  Обогащение Redis-записи текстами ответа выполняется через `SET XX KEEPTTL`:
+  сохраняет оставшийся TTL и возвращает `ErrNotFound`, если ключ истёк даже между
+  чтением и обновлением; истёкшая запись не создаётся заново.
 - Записи несут ID правил, типы данных и плейсхолдеры. Оригиналы за плейсхолдерами
   хранятся только при `GUARDRAILS_AUDIT_STORE_ORIGINAL_TEXTS` ≠ `off` (по умолчанию off);
   `masked_texts`/`masked_response_texts` (opt-in) — пользовательский контент, усекаемый
   рекордером до 64 KiB на текст. Подробнее — в [../configuration/](../configuration/) и
   [../../SECURITY.md](../../SECURITY.md).
+  Для SSE захват дополнительно ограничен во время накопления: 64 KiB текста
+  суммарно на ответ с UTF-8-safe усечением и ограничением метаданных. При выключенном
+  `GUARDRAILS_AUDIT_STORE_MASKED_RESPONSE_TEXTS` захвата нет. Ответ клиенту не усекается.
 
 Раскладка по бэкендам:
 

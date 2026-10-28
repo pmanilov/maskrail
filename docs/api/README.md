@@ -1,3 +1,4 @@
+<!-- Modified in this fork: document management request-origin and media-type enforcement. -->
 # Management API и веб-консоль
 
 Контракт-первичный: management API определён proto-первично в
@@ -57,6 +58,18 @@ grpc-gateway не переопределяет success-коды: любой ус
 POST; DELETE отвечает `200` с телом `{}`). Ошибки — gRPC-статусы, спроецированные в HTTP:
 InvalidArgument→400, FailedPrecondition→400, NotFound→404, AlreadyExists→409,
 ResourceExhausted→429, Internal→500.
+
+До grpc-gateway действуют отдельные HTTP-проверки:
+
+- **415** для непустого POST/PUT/PATCH без JSON media type
+  (`application/json` либо `application/*+json`, допустим `charset`).
+- **403** для мутаций с некорректным/чужим Origin либо cross-site/same-site
+  Fetch Metadata без совпадающего Origin. Клиенты CLI без браузерных заголовков
+  разрешены; это защита от браузерной cross-origin мутации, не аутентификация.
+
+При reverse proxy сохраняйте браузерный `Host`, `Origin` и `Sec-Fetch-Site`.
+Origin сравнивается по точному host/порту (с нормализацией default ports), без
+доверия к Forwarded-заголовкам; HTTPS termination с HTTP backend поддерживается.
 
 | Метод и путь | Поведение |
 |---|---|

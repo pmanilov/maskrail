@@ -1,3 +1,4 @@
+<!-- Modified in this fork: record feature additions. -->
 # Changelog
 
 All notable changes to this project are documented here. The format is based on
@@ -5,6 +6,17 @@ All notable changes to this project are documented here. The format is based on
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Security
+
+- Exclude upstream URL credentials, paths and query parameters from startup and
+  transport-error logs; retain safe failure categories without remote error text.
+- Preserve Redis audit retention with update-only `SET XX KEEPTTL`; expired records
+  are not resurrected during response enrichment.
+- Reject cross-origin management mutations and non-JSON mutation bodies; keep
+  same-origin UI and CLI JSON calls working without new size or time limits.
+- Gate response audit capture on its storage setting and cap SSE capture during
+  accumulation without truncating output delivered to clients.
 
 ### Added
 

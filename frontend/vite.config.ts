@@ -1,3 +1,4 @@
+// Modified in this fork: preserve the browser Host for management same-origin checks.
 import { fileURLToPath, URL } from 'node:url';
 
 import react from '@vitejs/plugin-react';
@@ -21,7 +22,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/v1': {
           target,
-          changeOrigin: true,
+          changeOrigin: false,
         },
       },
     },

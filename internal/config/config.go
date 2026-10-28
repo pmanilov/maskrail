@@ -1,3 +1,4 @@
+// Modified in this fork: exclude URL secrets from validation errors.
 // Package config holds the env-driven service configuration.
 // All variables share the GUARDRAILS_ prefix (e.g. GUARDRAILS_LISTEN_ADDR).
 package config
@@ -347,13 +348,13 @@ func validateUpstreamURL(raw, name string) error {
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return fmt.Errorf("parse %s: %w", name, err)
+		return fmt.Errorf("parse %s: invalid URL", name)
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("%s must be an http(s) URL, got %q", name, raw)
+		return fmt.Errorf("%s must be an http(s) URL", name)
 	}
 	if u.Host == "" {
-		return fmt.Errorf("%s must include a host, got %q", name, raw)
+		return fmt.Errorf("%s must include a host", name)
 	}
 	return nil
 }

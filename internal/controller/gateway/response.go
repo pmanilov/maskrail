@@ -1,3 +1,4 @@
+// Modified in this fork: opt in audit capture and redact URL diagnostics.
 package gateway
 
 import (
@@ -60,7 +61,7 @@ func (h *Handler) forward(
 	// cancels the in-flight upstream request and its body read.
 	outReq, err := http.NewRequestWithContext(ctx, r.Method, target.String(), bytes.NewReader(body))
 	if err != nil {
-		logging.Error(ctx, "failed to build upstream request", err)
+		logging.Error(ctx, "failed to build upstream request", logging.UpstreamError(err), "upstream", logging.URLOrigin(target.String()))
 		http.Error(w, "failed to build upstream request", http.StatusBadGateway)
 		return
 	}
@@ -80,10 +81,10 @@ func (h *Handler) forward(
 	if err != nil {
 		if ctx.Err() != nil {
 			// Client disconnected; nothing to write.
-			logging.Debug(ctx, "client disconnected before upstream response", "error", err)
+			logging.Debug(ctx, "client disconnected before upstream response", "error", logging.UpstreamError(err))
 			return
 		}
-		logging.Error(ctx, "upstream request failed", err, "url", target.String())
+		logging.Error(ctx, "upstream request failed", logging.UpstreamError(err), "upstream", logging.URLOrigin(target.String()))
 		http.Error(w, "upstream request failed", http.StatusBadGateway)
 		return
 	}
@@ -114,7 +115,7 @@ func (h *Handler) forward(
 		isSSE = true
 	}
 
-	capture := h.audit != nil && requestID != ""
+	capture := h.cfg.Audit.StoreMaskedResponseTexts && h.audit != nil && requestID != ""
 
 	if isSSE {
 		w.WriteHeader(resp.StatusCode)
@@ -131,7 +132,7 @@ func (h *Handler) forward(
 // texts. Best-effort and gated: a no-op when audit is off, the request was not
 // masked, or nothing was captured.
 func (h *Handler) recordMaskedResponse(requestID string, texts []string) {
-	if h.audit == nil || requestID == "" || len(texts) == 0 {
+	if !h.cfg.Audit.StoreMaskedResponseTexts || h.audit == nil || requestID == "" || len(texts) == 0 {
 		return
 	}
 	h.audit.RecordResponse(requestID, texts)
@@ -148,7 +149,7 @@ func demaskFull(ctx context.Context, w http.ResponseWriter, resp *http.Response,
 		if ctx.Err() != nil {
 			return nil
 		}
-		logging.Error(ctx, "failed to read upstream response body", err)
+		logging.Error(ctx, "failed to read upstream response body", logging.UpstreamError(err))
 		// Headers not yet written; surface a gateway error.
 		http.Error(w, "failed to read upstream response", http.StatusBadGateway)
 		return nil

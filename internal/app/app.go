@@ -1,3 +1,4 @@
+// Modified in this fork: redact upstream URL secrets in startup diagnostics.
 package app
 
 import (
@@ -385,7 +386,7 @@ func (e *App) Start(ctx context.Context) error {
 
 	gatewaySrv := e.GatewayServer()
 	go func() {
-		logging.Info(ctx, "Starting gateway server", "addr", gatewaySrv.Addr, "upstream", e.cfg.Upstream.BaseURL)
+		logging.Info(ctx, "Starting gateway server", "addr", gatewaySrv.Addr, "upstream", logging.URLOrigin(e.cfg.Upstream.BaseURL))
 		if err := gatewaySrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logging.Error(ctx, "gateway server error", err)
 		}

@@ -1,3 +1,4 @@
+# Modified in this fork: recognize dictionary-anchored Latin names and dotted handles.
 # guardrails_regex_rules.yaml — v1 ruleset for guardrails-llm-filter
 #
 # DataType fields:
@@ -338,6 +339,25 @@ guardrails_regex_rules:
         # privacy-biased tool. Deliberately a separate rule so operators can
         # disable the recall-biased form while keeping pii.fio-ru.
         regex: '(?:^|[^ЁА-Яёа-я])((?:(?:(?:(?:Александр|Анастаси|Валентин|Екатерин|Елизавет|Маргарит|Алевтин|Ангелин|Антонин|Вероник|Виктори|Кристин|Светлан|Валери|Варвар|Евгени|Зинаид|Клавди|Людмил|Надежд|Натали|Наталь|Татьян|Анжел|Галин|Карин|Ксени|Ларис|Марин|Милан|Оксан|Полин|Регин|Таиси|Тамар|Ульян|Ален|Алин|Алис|Алён|Дарь|Диан|Елен|Жанн|Ирин|Лиди|Лили|Мари|Марь|Олес|Ольг|Раис|Софи|Софь|Алл|Анн|Вер|Дин|Инн|Кир|Нин|Юли|Ев|Зо|Ян)(?:а|я|ы|е|у|ю|ой|ей))|(?:(?:Константин|Александр|Владислав|Станислав|Анатолий|Валентин|Владимир|Всеволод|Вячеслав|Геннадий|Григорий|Алексей|Аркадий|Арсений|Валерий|Василий|Виталий|Георгий|Дмитрий|Евгений|Николай|Савелий|Тимофей|Ярослав|Андрей|Богдан|Виктор|Герман|Даниил|Данила|Кирилл|Леонид|Максим|Матвей|Михаил|Никита|Руслан|Сергей|Степан|Эдуард|Антон|Артем|Артём|Борис|Вадим|Данил|Денис|Игорь|Макар|Марат|Мирон|Павел|Роман|Семен|Семён|Тимур|Федор|Фёдор|Глеб|Егор|Иван|Илья|Марк|Олег|Петр|Пётр|Юрий|Лев)(?:а|у|ом|ем|е|ой|я|ю|й)?)|(?:Любовь))\s+[ЁА-Я][ёа-я]+(?:-[ЁА-Я][ёа-я]+)?)|(?:[ЁА-Я][ёа-я]+(?:ов|ев|ёв|ин|ын|ск|цк|енк|ук|юк|ич|шин|нко|ая|яя|ой|ый|ий|ых|их)[ёа-я]{0,3}\s+(?:(?:(?:Александр|Анастаси|Валентин|Екатерин|Елизавет|Маргарит|Алевтин|Ангелин|Антонин|Вероник|Виктори|Кристин|Светлан|Валери|Варвар|Евгени|Зинаид|Клавди|Людмил|Надежд|Натали|Наталь|Татьян|Анжел|Галин|Карин|Ксени|Ларис|Марин|Милан|Оксан|Полин|Регин|Таиси|Тамар|Ульян|Ален|Алин|Алис|Алён|Дарь|Диан|Елен|Жанн|Ирин|Лиди|Лили|Мари|Марь|Олес|Ольг|Раис|Софи|Софь|Алл|Анн|Вер|Дин|Инн|Кир|Нин|Юли|Ев|Зо|Ян)(?:а|я|ы|е|у|ю|ой|ей))|(?:(?:Константин|Александр|Владислав|Станислав|Анатолий|Валентин|Владимир|Всеволод|Вячеслав|Геннадий|Григорий|Алексей|Аркадий|Арсений|Валерий|Василий|Виталий|Георгий|Дмитрий|Евгений|Николай|Савелий|Тимофей|Ярослав|Андрей|Богдан|Виктор|Герман|Даниил|Данила|Кирилл|Леонид|Максим|Матвей|Михаил|Никита|Руслан|Сергей|Степан|Эдуард|Антон|Артем|Артём|Борис|Вадим|Данил|Денис|Игорь|Макар|Марат|Мирон|Павел|Роман|Семен|Семён|Тимур|Федор|Фёдор|Глеб|Егор|Иван|Илья|Марк|Олег|Петр|Пётр|Юрий|Лев)(?:а|у|ом|ем|е|ой|я|ю|й)?)|(?:Любовь))))(?:[^ЁА-Яёа-я]|$)'
+        masking:
+          capture_groups: [1]
+          placeholder: "FIO"
+
+      # Latin-name heuristics use a limited, hand-curated first-name dictionary,
+      # not exhaustive anonymization. Name-looking domains such as john.smith.com
+      # can be over-masked; the dotted form can be disabled independently.
+      - rule_id: pii.fio-en
+        name: pii.fio-en
+        # A known middle name or transliterated patronymic prevents consuming
+        # the surname of one name as the middle component of adjacent names.
+        regex: '\b((?i:Alexander|Alexandra|Alex|Alice|Amanda|Andrew|Anna|Anthony|Anton|Artem|Arthur|Benjamin|Boris|Brian|Charles|Charlotte|Christopher|Daniel|David|Denis|Diana|Dmitri|Dmitry|Edward|Ekaterina|Elena|Elizabeth|Emily|Emma|Eric|Ethan|Eva|Evgeny|George|Grace|Hannah|Henry|Igor|Ilya|Irina|Ivan|Jack|Jacob|James|Jane|Jason|Jennifer|Jessica|John|Jonathan|Joseph|Joshua|Julia|Kate|Katherine|Kevin|Laura|Liam|Lily|Lucas|Lucy|Maria|Mark|Mary|Matthew|Maxim|Michael|Mikhail|Natalia|Natalya|Nathan|Nicholas|Nikolai|Nikita|Noah|Olga|Oliver|Olivia|Owen|Patrick|Paul|Pavel|Peter|Philip|Polina|Rachel|Rebecca|Richard|Robert|Roman|Ryan|Samuel|Sarah|Sergei|Sergey|Sophia|Sophie|Stanislav|Stephen|Steven|Susan|Tatiana|Thomas|Timothy|Vadim|Valentina|Vera|Victor|Victoria|Viktor|Vladimir|William|Yulia|Yuri)[ \t]+(?:(?i:Alexander|Alexandra|Alex|Alice|Amanda|Andrew|Anna|Anthony|Anton|Artem|Arthur|Benjamin|Boris|Brian|Charles|Charlotte|Christopher|Daniel|David|Denis|Diana|Dmitri|Dmitry|Edward|Ekaterina|Elena|Elizabeth|Emily|Emma|Eric|Ethan|Eva|Evgeny|George|Grace|Hannah|Henry|Igor|Ilya|Irina|Ivan|Jack|Jacob|James|Jane|Jason|Jennifer|Jessica|John|Jonathan|Joseph|Joshua|Julia|Kate|Katherine|Kevin|Laura|Liam|Lily|Lucas|Lucy|Maria|Mark|Mary|Matthew|Maxim|Michael|Mikhail|Natalia|Natalya|Nathan|Nicholas|Nikolai|Nikita|Noah|Olga|Oliver|Olivia|Owen|Patrick|Paul|Pavel|Peter|Philip|Polina|Rachel|Rebecca|Richard|Robert|Roman|Ryan|Samuel|Sarah|Sergei|Sergey|Sophia|Sophie|Stanislav|Stephen|Steven|Susan|Tatiana|Thomas|Timothy|Vadim|Valentina|Vera|Victor|Victoria|Viktor|Vladimir|William|Yulia|Yuri|[a-z]+(?:ovich|evich|ich|ovna|evna|ichna))[ \t]+)?(?:[A-Z][a-z]*(?:[-''][A-Z][a-z]+)+|[A-Z][a-z]+|[A-Z]{2,}(?:[-''][A-Z]+)*))\b'
+        masking:
+          capture_groups: [1]
+          placeholder: "FIO"
+
+      - rule_id: pii.fio-en.dotted
+        name: pii.fio-en.dotted
+        regex: '(?i:\b((?:Alexander|Alexandra|Alex|Alice|Amanda|Andrew|Anna|Anthony|Anton|Artem|Arthur|Benjamin|Boris|Brian|Charles|Charlotte|Christopher|Daniel|David|Denis|Diana|Dmitri|Dmitry|Edward|Ekaterina|Elena|Elizabeth|Emily|Emma|Eric|Ethan|Eva|Evgeny|George|Grace|Hannah|Henry|Igor|Ilya|Irina|Ivan|Jack|Jacob|James|Jane|Jason|Jennifer|Jessica|John|Jonathan|Joseph|Joshua|Julia|Kate|Katherine|Kevin|Laura|Liam|Lily|Lucas|Lucy|Maria|Mark|Mary|Matthew|Maxim|Michael|Mikhail|Natalia|Natalya|Nathan|Nicholas|Nikolai|Nikita|Noah|Olga|Oliver|Olivia|Owen|Patrick|Paul|Pavel|Peter|Philip|Polina|Rachel|Rebecca|Richard|Robert|Roman|Ryan|Samuel|Sarah|Sergei|Sergey|Sophia|Sophie|Stanislav|Stephen|Steven|Susan|Tatiana|Thomas|Timothy|Vadim|Valentina|Vera|Victor|Victoria|Viktor|Vladimir|William|Yulia|Yuri)(?:\.[a-z]{2,}(?:-[a-z]{2,})*){1,2})\b)'
         masking:
           capture_groups: [1]
           placeholder: "FIO"

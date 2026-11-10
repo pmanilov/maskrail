@@ -1,3 +1,4 @@
+// Modified in this fork: add sandbox masked-result copy labels and feedback.
 // Centralized UI strings. The domain labels (data-type display names/descriptions)
 // come already localized from the API; these are the UI chrome strings.
 
@@ -218,6 +219,9 @@ export const t = {
     empty: 'Введите текст и нажмите «Сканировать».',
     noMatches: 'Совпадений не найдено.',
     resultTitle: 'Результат',
+    copyResult: 'Скопировать результат',
+    resultCopied: 'Результат скопирован',
+    copyResultFailed: 'Не удалось скопировать — выделите маскированный текст вручную',
     examplesLabel: 'Примеры',
     emptyTitle: 'Здесь появится результат',
     emptyHint: 'Вставьте текст слева и нажмите «Сканировать». Быстрый старт — чипы-примеры над полем ввода.',

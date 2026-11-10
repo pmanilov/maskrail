@@ -20,6 +20,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Sandbox result copying: copies only the last displayed scan's masked texts,
+  preserving whitespace, with HTTP clipboard fallback and explicit failure feedback.
+
 - **Standalone HTTP data plane**: guardrails-llm-filter now runs as a standalone service
   that clients call directly (`GUARDRAILS_LISTEN_ADDR`, default `:8080`). It
   masks the request, forwards it to the configured upstream LLM provider itself,

@@ -145,9 +145,10 @@ func TestManagementSecurityJSONMediaTypes(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "http://console.example/v1/rules", strings.NewReader(`{}`))
 			r.Header.Set("Content-Type", "application/json")
 			value := "http://console.example"
-			if header == "Sec-Fetch-Site" {
+			switch header {
+			case "Sec-Fetch-Site":
 				value = "same-origin"
-			} else if header == "Content-Type" {
+			case "Content-Type":
 				value = "application/json"
 			}
 			r.Header[header] = []string{value, value}

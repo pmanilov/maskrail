@@ -20,6 +20,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Dictionary-based Latin name detection (`pii.fio-en`, `pii.fio-en.dotted`):
+  space-separated names and case-insensitive dotted handles such as `ivan.petrov`.
+  These ASCII heuristics have limited dictionary coverage and can overmask domains.
 - Sandbox result copying: copies only the last displayed scan's masked texts,
   preserving whitespace, with HTTP clipboard fallback and explicit failure feedback.
 

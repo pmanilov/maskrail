@@ -1,11 +1,15 @@
+// Modified in this fork: cover audit retention and update-only response enrichment.
 package redis_test
 
 import (
 	"crypto/rand"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/alicebob/miniredis/v2/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -113,4 +117,77 @@ func TestEncryptedRecordWithEncryptionDisabled(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, plain.Close()) })
 	_, err := plain.GetMaskingState(ctx, "req-1")
 	require.ErrorIs(t, err, repository.ErrUndecryptable)
+}
+
+func TestAuditResponseTextsPreservesRetention(t *testing.T) {
+	ctx := t.Context()
+	mr := miniredis.RunT(t)
+	s := redisrepo.New(redisrepo.Config{Addr: mr.Addr()}, maskingTTL, auditTTL, statecodec.Plain())
+	t.Cleanup(func() { require.NoError(t, s.Close()) })
+
+	rec := models.AuditRecord{
+		RequestID: "response-retention",
+		Timestamp: time.Now().UTC().Truncate(time.Microsecond),
+		Model:     "original-model",
+	}
+	require.NoError(t, s.PutAuditRecord(ctx, rec))
+	key := "guardrails:audit:rec:" + rec.RequestID
+	mr.FastForward(time.Hour)
+	remaining := mr.TTL(key)
+	require.Equal(t, auditTTL-time.Hour, remaining)
+
+	rec.MaskedResponseTexts = []string{"masked answer"}
+	require.NoError(t, s.SetAuditResponseTexts(ctx, rec.RequestID, rec.MaskedResponseTexts))
+	got, err := s.GetAuditRecord(ctx, rec.RequestID)
+	require.NoError(t, err)
+	assert.Equal(t, rec, got)
+	assert.Equal(t, remaining, mr.TTL(key), "enrichment must not reset or remove the TTL")
+	assert.True(t, mr.Exists("guardrails:audit:idx"), "enrichment must leave the index intact")
+
+	mr.FastForward(remaining)
+	_, err = s.GetAuditRecord(ctx, rec.RequestID)
+	require.ErrorIs(t, err, repository.ErrNotFound)
+	assert.False(t, mr.Exists(key))
+}
+
+func TestAuditResponseTextsDoesNotResurrect(t *testing.T) {
+	for _, scenario := range []string{"missing", "expired before read", "expired between read and write"} {
+		t.Run(scenario, func(t *testing.T) {
+			ctx := t.Context()
+			mr := miniredis.RunT(t)
+			s := redisrepo.New(redisrepo.Config{Addr: mr.Addr()}, maskingTTL, auditTTL, statecodec.Plain())
+			t.Cleanup(func() { require.NoError(t, s.Close()) })
+			const requestID = "expired-response"
+			const key = "guardrails:audit:rec:" + requestID
+			if scenario != "missing" {
+				require.NoError(t, s.PutAuditRecord(ctx, models.AuditRecord{
+					RequestID: requestID,
+					Timestamp: time.Now().UTC(),
+				}))
+			}
+			if scenario == "expired before read" {
+				mr.FastForward(auditTTL)
+			}
+			var intercepted atomic.Bool
+			if scenario == "expired between read and write" {
+				// Expire after GET has returned but before the real Redis SET runs.
+				// Intercept only the first write to this record.
+				mr.Server().SetPreHook(func(_ *server.Peer, cmd string, args ...string) bool {
+					if strings.EqualFold(cmd, "SET") && len(args) > 0 && args[0] == key && intercepted.CompareAndSwap(false, true) {
+						mr.FastForward(auditTTL)
+					}
+					return false
+				})
+			}
+
+			err := s.SetAuditResponseTexts(ctx, requestID, []string{"masked answer"})
+			require.ErrorIs(t, err, repository.ErrNotFound)
+			if scenario == "expired between read and write" {
+				require.True(t, intercepted.Load(), "the test must exercise expiry after the read")
+			}
+			assert.False(t, mr.Exists(key), "response enrichment must never recreate an expired or missing record")
+			_, err = s.GetAuditRecord(ctx, requestID)
+			require.ErrorIs(t, err, repository.ErrNotFound)
+		})
+	}
 }

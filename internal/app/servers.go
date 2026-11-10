@@ -1,3 +1,4 @@
+// Modified in this fork: protect management API mutations with same-origin and JSON media-type checks.
 package app
 
 import (
@@ -209,6 +210,7 @@ func (e *App) APIServer(ctx context.Context) *http.Server {
 // prefix split is exhaustive: every management route (including the REST-only
 // /v1/health and /v1/metrics/summary) lives under /v1/.
 func (e *App) apiHandler(ctx context.Context, api http.Handler) http.Handler {
+	api = managementSecurity(api)
 	if !e.cfg.UI.Enabled {
 		return api
 	}

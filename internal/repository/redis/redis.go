@@ -1,3 +1,4 @@
+// Modified in this fork: prevent audit response updates from reviving expired records.
 // Package redis implements repository.Store on top of a Redis server.
 //
 // Key layout:
@@ -146,10 +147,9 @@ func (s *Store) GetAuditRecord(ctx context.Context, requestID string) (models.Au
 }
 
 func (s *Store) SetAuditResponseTexts(ctx context.Context, requestID string, texts []string) error {
-	// Read-modify-write on the record STRING, preserving its remaining TTL
-	// (KeepTTL) and leaving the index ZSET untouched (ts/id are unchanged).
-	// Last-write-wins against a concurrent PutAuditRecord, matching the plain-
-	// pipeline house style elsewhere in this backend.
+	// Preserve the remaining TTL and leave the index untouched. XX prevents
+	// expiry between GET and SET from recreating a record without retention.
+	// Concurrent record replacements retain the existing last-write-wins behavior.
 	key := auditRecKey(requestID)
 	payload, err := s.client.Get(ctx, key).Bytes()
 	if errors.Is(err, goredis.Nil) {
@@ -167,8 +167,12 @@ func (s *Store) SetAuditResponseTexts(ctx context.Context, requestID string, tex
 	if err != nil {
 		return fmt.Errorf("marshal audit record: %w", err)
 	}
-	if err := s.client.Set(ctx, key, updated, goredis.KeepTTL).Err(); err != nil {
+	exists, err := s.client.SetXX(ctx, key, updated, goredis.KeepTTL).Result()
+	if err != nil {
 		return fmt.Errorf("redis set audit record: %w", err)
+	}
+	if !exists {
+		return repository.ErrNotFound
 	}
 	return nil
 }

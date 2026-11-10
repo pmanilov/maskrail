@@ -1,3 +1,4 @@
+<!-- Modified in this fork: document management origin guards and bounded SSE audit capture. -->
 # Конфигурация
 
 Только окружение (`internal/config/config.go`, `caarlos0/env`), единый префикс
@@ -87,6 +88,18 @@ env-дефолтах (кастомные правила — только фай�
 | `GUARDRAILS_AUDIT_STORE_ORIGINAL_TEXTS` | `off` | хранить оригинал за каждым плейсхолдером для «показа по наведению» в UI: `off` \| `plain` \| `encrypted`. `encrypted` переиспользует ключ AES-256-GCM хранилища и требует `GUARDRAILS_STORE_ENCRYPTION_ENABLED` (иначе, как и при неизвестном значении, — отказ старта). БЕЗОПАСНОСТЬ: `plain`/`encrypted` сохраняют сырые чувствительные данные — ограничьте доступ к хранилищу |
 | `GUARDRAILS_AUDIT_RETENTION` | `24h` | сколько хранятся аудит-записи |
 | `GUARDRAILS_AUDIT_MAX_ENTRIES` | `10000` | только для in_memory: лимит аудит-записей (вытесняется старейшее); `0` = без лимита |
+
+Непустые POST/PUT/PATCH в management REST требуют
+`application/json` или `application/*+json` (иначе **415**). Мутации с чужим или
+некорректным `Origin` возвращают **403**; CLI без Origin продолжает работать.
+Reverse proxy должен сохранять внешний `Host`, а также браузерные `Origin` и
+`Sec-Fetch-Site`; HTTPS termination допустим, `Forwarded` не является источником доверия.
+Эти проверки не заменяют сетевую изоляцию неаутентифицированного management API.
+
+SSE-тексты для аудита накапливаются только при включённом сохранении response texts:
+не более **64 KiB суммарного текста** за ответ, с сохранением границ UTF-8.
+Метаданные также ограничены: 1 024 ключа, 256 байт на ключ, 64 KiB ключей суммарно.
+Ограничение захвата не обрезает ответ клиенту.
 
 ## Матчинг путей (`GUARDRAILS_PATHS`)
 

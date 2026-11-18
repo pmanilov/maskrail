@@ -17,11 +17,11 @@ const (
 	// checksum — for the keyword-gated fallback that masks typo'd/synthetic cards.
 	ValidatorPaymentCardNoLuhn ValidatorType = "payment_card_no_luhn"
 	ValidatorEntropy           ValidatorType = "entropy"
-	ValidatorBanlist     ValidatorType = "banlist"
-	ValidatorIPv4        ValidatorType = "ip_v4"
-	ValidatorIPv6        ValidatorType = "ip_v6"
-	ValidatorIPPublic    ValidatorType = "ip_public"
-	ValidatorIPPrivate   ValidatorType = "ip_private"
+	ValidatorBanlist           ValidatorType = "banlist"
+	ValidatorIPv4              ValidatorType = "ip_v4"
+	ValidatorIPv6              ValidatorType = "ip_v6"
+	ValidatorIPPublic          ValidatorType = "ip_public"
+	ValidatorIPPrivate         ValidatorType = "ip_private"
 )
 
 // MaskingConfig describes how to replace a detected value during masking.
@@ -56,6 +56,8 @@ type Rule struct {
 	MinLength  int             `yaml:"min_length" json:"min_length,omitempty"`
 	Entropy    float64         `yaml:"entropy" json:"entropy,omitempty"`
 	Banlist    []string        `yaml:"banlist" json:"banlist,omitempty"`
-	DefaultOn  bool            `yaml:"default_on" json:"default_on"`
-	Masking    MaskingConfig   `yaml:"masking" json:"masking"`
+	// SecretExclusions are builtin-file-only regexes evaluated against the selected value.
+	SecretExclusions []string      `yaml:"secret_exclusions,omitempty" json:"-"`
+	DefaultOn        bool          `yaml:"default_on" json:"default_on"`
+	Masking          MaskingConfig `yaml:"masking" json:"masking"`
 }

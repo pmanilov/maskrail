@@ -33,15 +33,6 @@ func loadRealConfigScanner(t *testing.T) (*sensitive.Scanner, map[string]rule.Ru
 	return sensitive.New(reg), rulesByID
 }
 
-func runeInClass(r rune, ranges []rune) bool {
-	for i := 0; i+1 < len(ranges); i += 2 {
-		if r >= ranges[i] && r <= ranges[i+1] {
-			return true
-		}
-	}
-	return false
-}
-
 func assertNoCapturedBoundaryLeak(t *testing.T, rl rule.Rule, fullText string) {
 	t.Helper()
 	if len(rl.Masking.CaptureGroups) == 0 {
@@ -60,4 +51,3 @@ func assertNoCapturedBoundaryLeak(t *testing.T, rl rule.Rule, fullText string) {
 		t.Fatalf("captured FullText leaks right boundary: %q", fullText)
 	}
 }
-

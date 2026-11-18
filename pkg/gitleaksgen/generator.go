@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	tomlsrc "github.com/cloud-ru-tech/guardrails-llm-filter/pkg/gitleaksgen/toml"
+	"github.com/cloud-ru-tech/guardrails-llm-filter/pkg/guardrails/regex/rule"
 )
 
 const (
@@ -25,7 +26,25 @@ const (
 
 var apiWordRe = regexp.MustCompile(`(^|[^a-z0-9])api([^a-z0-9]|$)`)
 
+// curl's imported header rule overlaps the manual contextual HTTP rules.
+// Keep the same candidate-only literal/public policy for that path.
+var contextualHeaderExclusions = []string{
+	`(?i)\A(?:YOUR_ACCESS_TOKEN|YOUR_API_KEY|YOUR_TOKEN|REPLACE_ME|CHANGEME|EXAMPLE_TOKEN|EXAMPLE_KEY)\z`,
+	`\A(?:\$\{[^\r\n]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\{\{[^\r\n]*\}\}|<[^\r\n]*>)\z`,
+	`\A(?:System\.getenv|os\.getenv|os\.environ|process\.env(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\z`,
+	`\Apk\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\z`,
+	`(?i)\A(?:test|live)_pub_[a-f0-9]{31}\z`,
+	`(?i)\AFLWPUBK_(?:TEST|LIVE)-[a-h0-9]{32}-X\z`,
+	`(?i)\Apubkey-[a-f0-9]{32}\z`,
+}
+
 var gitleaksRegexOverrides = map[string]string{
+	// Legacy unprefixed values need a local, explicitly secret field.
+	"sourcegraph-access-token": `(?i)(?:\b(sgp_(?:(?:[a-f0-9]{16}|local)_)?[a-f0-9]{40})|\b(?:sourcegraph(?:_access)?_token|sourcegraph[ \t]+token)["']?[ \t]*[:=][ \t]*["']?([a-f0-9]{40}))(?:[\x60'"\s,;:!?()\[\]{}]|$)`,
+	"atlassian-api-token":      `(?:\b(?i:(?:jira|confluence|atlassian)[ _-](?:api[ _-])?token)["']?[ \t]*[:=][ \t]*["']?((?i:[a-z0-9]{20}[a-f0-9]{4}))|\b(ATATT3[A-Za-z0-9_\-=]{186}))(?:[\x60'"\s,;:!?()\[\]{}]|$)`,
+	// The upstream prefix identifies only the host; mask the complete signed URL payload.
+	"aws-amazon-bedrock-api-key-short-lived": `\b(bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29t[A-Za-z0-9+/]+={0,2})(?:[^A-Za-z0-9+/=]|\z)`,
+	"mapbox-api-token":                       `(?i:\bmapbox_(?:access_|api_)?token)["']?[ \t]*[:=][ \t]*["']?((?:sk|tk)\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)(?:[\x60'"\s,;:!?()\[\]{}]|$)`,
 	// Upstream matches the whole cookie assignment. Mask only the session value,
 	// leaving the cookie name and header syntax intact.
 	"gitlab-session-cookie": `_gitlab_session=([0-9a-z]{32})`,
@@ -57,8 +76,7 @@ var gitleaksCaptureGroupOverrides = map[string][]int{
 	"heroku-api-key-v2":            {1},
 	"kubernetes-secret-yaml":       {1, 2},
 	"lob-api-key":                  {1},
-	"lob-pub-api-key":              {1},
-	"sourcegraph-access-token":     {1},
+	"sourcegraph-access-token":     {1, 2},
 }
 
 var gitleaksForceFullMatch = map[string]struct{}{
@@ -173,6 +191,15 @@ func buildFMGuardrailsRegexRulesFromConfig(cfg tomlsrc.Config, policy Policy) (O
 		}
 		if policy.IncludeEntropy && src.Entropy > 0 {
 			r.Entropy = src.Entropy
+			r.Validators = append(r.Validators, rule.ValidatorEntropy)
+		}
+		exclusions, err := secretAllowlistRegexes(src)
+		if err != nil {
+			return OutputFile{}, stats, err
+		}
+		r.SecretExclusions = exclusions
+		if src.ID == "curl-auth-header" {
+			r.SecretExclusions = append(r.SecretExclusions, contextualHeaderExclusions...)
 		}
 
 		dataTypes[idx].Rules = append(dataTypes[idx].Rules, r)
@@ -193,6 +220,31 @@ func buildFMGuardrailsRegexRulesFromConfig(cfg tomlsrc.Config, policy Policy) (O
 
 	stats.GeneratedRules = total
 	return OutputFile{DataTypes: filtered}, stats, nil
+}
+
+// Only these source allowlists have candidate-value semantics reviewed for import.
+func secretAllowlistRegexes(src tomlsrc.Rule) ([]string, error) {
+	switch src.ID {
+	case "aws-access-token", "curl-auth-user", "gcp-api-key", "nuget-config-password", "vault-service-token":
+	default:
+		return nil, nil
+	}
+	var patterns []string
+	for i, allow := range src.Allowlists {
+		if allow.RegexTarget != "" || allow.Condition != "" || len(allow.Paths) != 0 || len(allow.Commits) != 0 || len(allow.StopWords) != 0 {
+			return nil, fmt.Errorf("rule %q allowlist %d: unsupported scope or condition", src.ID, i)
+		}
+		for j, pattern := range allow.Regexes {
+			if pattern == "" {
+				return nil, fmt.Errorf("rule %q allowlist %d regex %d: empty pattern", src.ID, i, j)
+			}
+			if _, err := regexp.Compile("(?m)" + pattern); err != nil {
+				return nil, fmt.Errorf("rule %q allowlist %d regex %d: %w", src.ID, i, j, err)
+			}
+			patterns = append(patterns, pattern)
+		}
+	}
+	return patterns, nil
 }
 
 func gitleaksRegexForRule(src tomlsrc.Rule) string {

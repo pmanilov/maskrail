@@ -45,14 +45,15 @@ type OutputDataType struct {
 
 // OutputRule is one generated guardrails rule.
 type OutputRule struct {
-	RuleID     string               `yaml:"rule_id"`
-	Name       string               `yaml:"name"`
-	Regex      string               `yaml:"regex"`
-	Keywords   []string             `yaml:"keywords,omitempty,flow"`
-	MinLength  int                  `yaml:"min_length,omitempty"`
-	Entropy    float64              `yaml:"entropy,omitempty"`
-	Masking    OutputMasking        `yaml:"masking"`
-	Validators []rule.ValidatorType `yaml:"validators,omitempty"`
+	RuleID           string               `yaml:"rule_id"`
+	Name             string               `yaml:"name"`
+	Regex            string               `yaml:"regex"`
+	Keywords         []string             `yaml:"keywords,omitempty,flow"`
+	MinLength        int                  `yaml:"min_length,omitempty"`
+	Entropy          float64              `yaml:"entropy,omitempty"`
+	Masking          OutputMasking        `yaml:"masking"`
+	Validators       []rule.ValidatorType `yaml:"validators,omitempty"`
+	SecretExclusions []string             `yaml:"secret_exclusions,omitempty"`
 }
 
 type OutputMasking struct {

@@ -55,7 +55,13 @@ func DefaultGitleaksPolicy() Policy {
 				Description:   "Ключи доступа, токены/секреты",
 			},
 		},
-		ExcludeRuleIDs: []string{"generic-api-key"},
+		ExcludeRuleIDs: []string{
+			"generic-api-key",
+			"adobe-client-id", "asana-client-id", "bitbucket-client-id",
+			"discord-client-id", "linkedin-client-id", "looker-client-id",
+			"messagebird-client-id", "plaid-client-id",
+			"lob-pub-api-key", "flutterwave-public-key", "mailgun-pub-key",
+		},
 	}
 	return p
 }

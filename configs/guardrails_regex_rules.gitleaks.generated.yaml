@@ -5,14 +5,6 @@ guardrails_regex_rules:
     display_name: Учетные данные
     description: Пароли, client credentials, OAuth/session артефакты
     rules:
-      - rule_id: credentials.adobe-client-id.gl
-        name: credentials.adobe-client-id.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:adobe)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-f0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [adobe]
-        entropy: 2.0
-        masking:
-          capture_groups: [1]
-          placeholder: ADOBE_CLIENT_ID
       - rule_id: credentials.adobe-client-secret.gl
         name: credentials.adobe-client-secret.gl
         regex: "\\b(p8e-(?i)[a-z0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -21,13 +13,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: ADOBE_CLIENT_SECRET
-      - rule_id: credentials.asana-client-id.gl
-        name: credentials.asana-client-id.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:asana)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([0-9]{16})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [asana]
-        masking:
-          capture_groups: [1]
-          placeholder: ASANA_CLIENT_ID
+        validators:
+          - entropy
       - rule_id: credentials.asana-client-secret.gl
         name: credentials.asana-client-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:asana)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -43,13 +30,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: AZURE_AD_CLIENT_SECRET
-      - rule_id: credentials.bitbucket-client-id.gl
-        name: credentials.bitbucket-client-id.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:bitbucket)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [bitbucket]
-        masking:
-          capture_groups: [1]
-          placeholder: BITBUCKET_CLIENT_ID
+        validators:
+          - entropy
       - rule_id: credentials.bitbucket-client-secret.gl
         name: credentials.bitbucket-client-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:bitbucket)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9=_\\-]{64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -65,6 +47,16 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1, 2, 3, 4, 5, 6, 7, 8]
           placeholder: CURL_AUTH_HEADER
+        validators:
+          - entropy
+        secret_exclusions:
+          - "(?i)\\A(?:YOUR_ACCESS_TOKEN|YOUR_API_KEY|YOUR_TOKEN|REPLACE_ME|CHANGEME|EXAMPLE_TOKEN|EXAMPLE_KEY)\\z"
+          - "\\A(?:\\$\\{[^\\r\\n]*\\}|\\$[A-Za-z_][A-Za-z0-9_]*|\\{\\{[^\\r\\n]*\\}\\}|<[^\\r\\n]*>)\\z"
+          - "\\A(?:System\\.getenv|os\\.getenv|os\\.environ|process\\.env(?:\\.[A-Za-z_][A-Za-z0-9_]*)?)\\z"
+          - "\\Apk\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\z"
+          - "(?i)\\A(?:test|live)_pub_[a-f0-9]{31}\\z"
+          - "(?i)\\AFLWPUBK_(?:TEST|LIVE)-[a-h0-9]{32}-X\\z"
+          - "(?i)\\Apubkey-[a-f0-9]{32}\\z"
       - rule_id: credentials.curl-auth-user.gl
         name: credentials.curl-auth-user.gl
         regex: "\\bcurl\\b(?:.*|.*(?:[\\r\\n]{1,2}.*){1,5})[ \\t\\n\\r](?:-u|--user)(?:=|[ \\t]{0,5})(\"(:[^\"]{3,}|[^:\"]{3,}:|[^:\"]{3,}:[^\"]{3,})\"|'([^:']{3,}:[^']{3,})'|((?:\"[^\"]{3,}\"|'[^']{3,}'|[\\w$@.-]+):(?:\"[^\"]{3,}\"|'[^']{3,}'|[\\w${}@.-]+)))(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|\\z)"
@@ -73,6 +65,15 @@ guardrails_regex_rules:
         masking:
           capture_groups: [2, 3, 4]
           placeholder: CURL_AUTH_USER
+        validators:
+          - entropy
+        secret_exclusions:
+          - "[^:]+:(?:change(?:it|me)|pass(?:word)?|pwd|test|token|\\*+|x+)"
+          - "['\"]?<[^>]+>['\"]?:['\"]?<[^>]+>|<[^:]+:[^>]+>['\"]?"
+          - "[^:]+:\\[[^]]+]"
+          - "['\"]?[^:]+['\"]?:['\"]?\\$(?:\\d|\\w+|\\{(?:\\d|\\w+)})['\"]?"
+          - "\\$\\([^)]+\\):\\$\\([^)]+\\)"
+          - "['\"]?\\$?{{[^}]+}}['\"]?:['\"]?\\$?{{[^}]+}}['\"]?"
       - rule_id: credentials.digitalocean-refresh-token.gl
         name: credentials.digitalocean-refresh-token.gl
         regex: "(?i)\\b(dor_v1_[a-f0-9]{64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -80,14 +81,6 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: DIGITALOCEAN_REFRESH_TOKEN
-      - rule_id: credentials.discord-client-id.gl
-        name: credentials.discord-client-id.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:discord)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([0-9]{18})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [discord]
-        entropy: 2.0
-        masking:
-          capture_groups: [1]
-          placeholder: DISCORD_CLIENT_ID
       - rule_id: credentials.discord-client-secret.gl
         name: credentials.discord-client-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:discord)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9=_\\-]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -96,6 +89,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: DISCORD_CLIENT_SECRET
+        validators:
+          - entropy
       - rule_id: credentials.facebook-secret.gl
         name: credentials.facebook-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:facebook)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-f0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -104,6 +99,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: FACEBOOK_SECRET
+        validators:
+          - entropy
       - rule_id: credentials.finicity-client-secret.gl
         name: credentials.finicity-client-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:finicity)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{20})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -118,6 +115,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITHUB_OAUTH
+        validators:
+          - entropy
       - rule_id: credentials.github-refresh-token.gl
         name: credentials.github-refresh-token.gl
         regex: ghr_[0-9a-zA-Z]{36}
@@ -125,6 +124,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITHUB_REFRESH_TOKEN
+        validators:
+          - entropy
       - rule_id: credentials.gitlab-oauth-app-secret.gl
         name: credentials.gitlab-oauth-app-secret.gl
         regex: "gloas-[0-9a-zA-Z_\\-]{64}"
@@ -132,6 +133,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_OAUTH_APP_SECRET
+        validators:
+          - entropy
       - rule_id: credentials.gitlab-session-cookie.gl
         name: credentials.gitlab-session-cookie.gl
         regex: _gitlab_session=([0-9a-z]{32})
@@ -140,6 +143,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: GITLAB_SESSION_COOKIE
+        validators:
+          - entropy
       - rule_id: credentials.hashicorp-tf-password.gl
         name: credentials.hashicorp-tf-password.gl
         regex: "(?i)[\\w.-]{0,50}?(?:administrator_login_password|password)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}\\\\?\"([a-z0-9=_\\-]{8,20})\\\\?\"(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -148,6 +153,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: HASHICORP_TF_PASSWORD
+        validators:
+          - entropy
       - rule_id: credentials.intra42-client-secret.gl
         name: credentials.intra42-client-secret.gl
         regex: "\\b(s-s4t2(?:ud|af)-(?i)[abcdef0123456789]{64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -156,6 +163,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: INTRA42_CLIENT_SECRET
+        validators:
+          - entropy
       - rule_id: credentials.jwt-base64.gl
         name: credentials.jwt-base64.gl
         regex: "\\bZXlK(?:(?P<alg>aGJHY2lPaU)|(?P<apu>aGNIVWlPaU)|(?P<apv>aGNIWWlPaU)|(?P<aud>aGRXUWlPaU)|(?P<b64>aU5qUWlP)|(?P<crit>amNtbDBJanBi)|(?P<cty>amRIa2lPaU)|(?P<epk>bGNHc2lPbn)|(?P<enc>bGJtTWlPaU)|(?P<jku>cWEzVWlPaU)|(?P<jwk>cWQyc2lPb)|(?P<iss>cGMzTWlPaU)|(?P<iv>cGRpSTZJ)|(?P<kid>cmFXUWlP)|(?P<key_ops>clpYbGZiM0J6SWpwY)|(?P<kty>cmRIa2lPaUp)|(?P<nonce>dWIyNWpaU0k2)|(?P<p2c>d01tTWlP)|(?P<p2s>d01uTWlPaU)|(?P<ppt>d2NIUWlPaU)|(?P<sub>emRXSWlPaU)|(?P<svt>emRuUWlP)|(?P<tag>MFlXY2lPaU)|(?P<typ>MGVYQWlPaUp)|(?P<url>MWNtd2l)|(?P<use>MWMyVWlPaUp)|(?P<ver>MlpYSWlPaU)|(?P<version>MlpYSnphVzl1SWpv)|(?P<x>NElqb2)|(?P<x5c>NE5XTWlP)|(?P<x5t>NE5YUWlPaU)|(?P<x5ts256>NE5YUWpVekkxTmlJNkl)|(?P<x5u>NE5YVWlPaU)|(?P<zip>NmFYQWlPaU))[a-zA-Z0-9\\/\\\\_+\\-\\r\\n]{40,}={0,2}"
@@ -163,6 +172,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: JWT_BASE64
+        validators:
+          - entropy
       - rule_id: credentials.jwt.gl
         name: credentials.jwt.gl
         regex: "\\b(ey[a-zA-Z0-9]{17,}\\.ey[a-zA-Z0-9\\/_-]{17,}\\.(?:[a-zA-Z0-9\\/_-]{10,}={0,2})?)(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -171,6 +182,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: JWT
+        validators:
+          - entropy
       - rule_id: credentials.kubernetes-secret-yaml.gl
         name: credentials.kubernetes-secret-yaml.gl
         regex: "(?i)(?:\\bkind:[ \\t]*[\"']?\\bsecret\\b[\"']?(?s:.){0,200}?\\bdata:(?s:.){0,100}?\\s+[\\w.-]+:(?:[ \\t]*(?:\\||>[-+]?)\\s+)?[ \\t]*[\"']?([a-z0-9+/]{10,}={0,3})[\"']?|\\bdata:(?s:.){0,100}?\\s+[\\w.-]+:(?:[ \\t]*(?:\\||>[-+]?)\\s+)?[ \\t]*[\"']?([a-z0-9+/]{10,}={0,3})[\"']?(?s:.){0,200}?\\bkind:[ \\t]*[\"']?\\bsecret\\b[\"']?)"
@@ -186,14 +199,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: LINEAR_CLIENT_SECRET
-      - rule_id: credentials.linkedin-client-id.gl
-        name: credentials.linkedin-client-id.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:linked[_-]?in)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{14})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [linkedin, linked_in, linked-in]
-        entropy: 2.0
-        masking:
-          capture_groups: [1]
-          placeholder: LINKEDIN_CLIENT_ID
+        validators:
+          - entropy
       - rule_id: credentials.linkedin-client-secret.gl
         name: credentials.linkedin-client-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:linked[_-]?in)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{16})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -202,13 +209,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: LINKEDIN_CLIENT_SECRET
-      - rule_id: credentials.looker-client-id.gl
-        name: credentials.looker-client-id.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:looker)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{20})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [looker]
-        masking:
-          capture_groups: [1]
-          placeholder: LOOKER_CLIENT_ID
+        validators:
+          - entropy
       - rule_id: credentials.looker-client-secret.gl
         name: credentials.looker-client-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:looker)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{24})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -216,13 +218,6 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: LOOKER_CLIENT_SECRET
-      - rule_id: credentials.messagebird-client-id.gl
-        name: credentials.messagebird-client-id.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:message[_-]?bird)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [messagebird, message-bird, message_bird]
-        masking:
-          capture_groups: [1]
-          placeholder: MESSAGEBIRD_CLIENT_ID
       - rule_id: credentials.new-relic-user-api-id.gl
         name: credentials.new-relic-user-api-id.gl
         regex: "(?i)[\\w.-]{0,50}?(?:new-relic|newrelic|new_relic)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -238,14 +233,12 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: NUGET_CONFIG_PASSWORD
-      - rule_id: credentials.plaid-client-id.gl
-        name: credentials.plaid-client-id.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:plaid)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{24})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [plaid]
-        entropy: 3.5
-        masking:
-          capture_groups: [1]
-          placeholder: PLAID_CLIENT_ID
+        validators:
+          - entropy
+        secret_exclusions:
+          - 33f!!lloppa
+          - "hal\\+9ooo_da!sY"
+          - "^\\%\\S.*\\%$"
       - rule_id: credentials.planetscale-oauth-token.gl
         name: credentials.planetscale-oauth-token.gl
         regex: "\\b(pscale_oauth_[\\w=\\.-]{32,64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -254,6 +247,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: PLANETSCALE_OAUTH_TOKEN
+        validators:
+          - entropy
       - rule_id: credentials.planetscale-password.gl
         name: credentials.planetscale-password.gl
         regex: "(?i)\\b(pscale_pw_(?i)[\\w=\\.-]{32,64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -262,6 +257,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: PLANETSCALE_PASSWORD
+        validators:
+          - entropy
       - rule_id: credentials.sendbird-access-id.gl
         name: credentials.sendbird-access-id.gl
         regex: "(?i)[\\w.-]{0,50}?(?:sendbird)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -276,6 +273,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SHOPIFY_SHARED_SECRET
+        validators:
+          - entropy
       - rule_id: credentials.sidekiq-secret.gl
         name: credentials.sidekiq-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:BUNDLE_ENTERPRISE__CONTRIBSYS__COM|BUNDLE_GEMS__CONTRIBSYS__COM)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-f0-9]{8}:[a-f0-9]{8})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -297,6 +296,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SLACK_CONFIG_REFRESH_TOKEN
+        validators:
+          - entropy
       - rule_id: credentials.sumologic-access-id.gl
         name: credentials.sumologic-access-id.gl
         regex: "[\\w.-]{0,50}?(?i:[\\w.-]{0,50}?(?:(?-i:[Ss]umo|SUMO))(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3})(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}(su[a-zA-Z0-9]{12})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -305,6 +306,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SUMOLOGIC_ACCESS_ID
+        validators:
+          - entropy
       - rule_id: credentials.twitter-access-secret.gl
         name: credentials.twitter-access-secret.gl
         regex: "(?i)[\\w.-]{0,50}?(?:twitter)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{45})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -367,14 +370,18 @@ guardrails_regex_rules:
         entropy: 4.5
         masking:
           placeholder: ARTIFACTORY_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.atlassian-api-token.gl
         name: api_keys.atlassian-api-token.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:(?-i:ATLASSIAN|[Aa]tlassian)|(?-i:CONFLUENCE|[Cc]onfluence)|(?-i:JIRA|[Jj]ira))(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{20}[a-f0-9]{4})(?:[\\x60'\"\\s;]|\\\\[nr]|$)|\\b(ATATT3[A-Za-z0-9_\\-=]{186})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
+        regex: "(?:\\b(?i:(?:jira|confluence|atlassian)[ _-](?:api[ _-])?token)[\"']?[ \\t]*[:=][ \\t]*[\"']?((?i:[a-z0-9]{20}[a-f0-9]{4}))|\\b(ATATT3[A-Za-z0-9_\\-=]{186}))(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|$)"
         keywords: [atlassian, confluence, jira, atatt3]
         entropy: 3.5
         masking:
           capture_groups: [1, 2]
           placeholder: ATLASSIAN_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.aws-amazon-bedrock-api-key-long-lived.gl
         name: api_keys.aws-amazon-bedrock-api-key-long-lived.gl
         regex: "\\b(ABSK[A-Za-z0-9+/]{109,269}={0,2})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -383,13 +390,18 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: AWS_AMAZON_BEDROCK_API_KEY_LONG_LIVED
+        validators:
+          - entropy
       - rule_id: api_keys.aws-amazon-bedrock-api-key-short-lived.gl
         name: api_keys.aws-amazon-bedrock-api-key-short-lived.gl
-        regex: bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29t
+        regex: "\\b(bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29t[A-Za-z0-9+/]+={0,2})(?:[^A-Za-z0-9+/=]|\\z)"
         keywords: [bedrock-api-key-]
         entropy: 3.0
         masking:
+          capture_groups: [1]
           placeholder: AWS_AMAZON_BEDROCK_API_KEY_SHORT_LIVED
+        validators:
+          - entropy
       - rule_id: api_keys.beamer-api-token.gl
         name: api_keys.beamer-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:beamer)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}(b_[a-z0-9=_\\-]{44})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -405,6 +417,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: CISCO_MERAKI_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.clickhouse-cloud-api-secret-key.gl
         name: api_keys.clickhouse-cloud-api-secret-key.gl
         regex: "\\b(4b1d[A-Za-z0-9]{38})\\b"
@@ -413,6 +427,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: CLICKHOUSE_CLOUD_API_SECRET_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.clojars-api-token.gl
         name: api_keys.clojars-api-token.gl
         regex: (?i)CLOJARS_[a-z0-9]{60}
@@ -420,6 +436,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: CLOJARS_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.cloudflare-api-key.gl
         name: api_keys.cloudflare-api-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:cloudflare)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9_-]{40})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -428,6 +446,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: CLOUDFLARE_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.cloudflare-global-api-key.gl
         name: api_keys.cloudflare-global-api-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:cloudflare)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-f0-9]{37})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -436,6 +456,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: CLOUDFLARE_GLOBAL_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.cohere-api-token.gl
         name: api_keys.cohere-api-token.gl
         regex: "[\\w.-]{0,50}?(?i:[\\w.-]{0,50}?(?:cohere|CO_API_KEY)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3})(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-zA-Z0-9]{40})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -444,6 +466,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: COHERE_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.contentful-delivery-api-token.gl
         name: api_keys.contentful-delivery-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:contentful)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9=_\\-]{43})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -459,6 +483,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: DATABRICKS_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.defined-networking-api-token.gl
         name: api_keys.defined-networking-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:dnkey)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}(dnkey-[a-z0-9=_\\-]{26}-[a-z0-9=_\\-]{52})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -480,6 +506,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: DOPPLER_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.dropbox-api-token.gl
         name: api_keys.dropbox-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:dropbox)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{15})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -508,6 +536,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: DUFFEL_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.dynatrace-api-token.gl
         name: api_keys.dynatrace-api-token.gl
         regex: "dt0c01\\.(?i)[a-z0-9]{24}\\.[a-z0-9]{64}"
@@ -515,6 +545,8 @@ guardrails_regex_rules:
         entropy: 4.0
         masking:
           placeholder: DYNATRACE_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.easypost-api-token.gl
         name: api_keys.easypost-api-token.gl
         regex: "\\bEZAK(?i)[a-z0-9]{54}\\b"
@@ -522,6 +554,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: EASYPOST_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.easypost-test-api-token.gl
         name: api_keys.easypost-test-api-token.gl
         regex: "\\bEZTK(?i)[a-z0-9]{54}\\b"
@@ -529,6 +563,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: EASYPOST_TEST_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.fastly-api-token.gl
         name: api_keys.fastly-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:fastly)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9=_\\-]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -551,6 +587,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: FLYIO_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.frameio-api-token.gl
         name: api_keys.frameio-api-token.gl
         regex: "fio-u-(?i)[a-z0-9\\-_=]{64}"
@@ -565,6 +603,25 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: GCP_API_KEY
+        validators:
+          - entropy
+        secret_exclusions:
+          - AIzaSyabcdefghijklmnopqrstuvwxyz1234567
+          - AIzaSyAnLA7NfeLquW1tJFpx_eQCxoX-oo6YyIs
+          - AIzaSyCkEhVjf3pduRDt6d1yKOMitrUEke8agEM
+          - AIzaSyDMAScliyLx7F0NPDEJi1QmyCgHIAODrlU
+          - AIzaSyD3asb-2pEZVqMkmL6M9N6nHZRR_znhrh0
+          - AIzayDNSXIbFmlXbIE6mCzDLQAqITYefhixbX4A
+          - AIzaSyAdOS2zB6NCsk1pCdZ4-P6GBdi_UUPwX7c
+          - AIzaSyASWm6HmTMdYWpgMnjRBjxcQ9CKctWmLd4
+          - AIzaSyANUvH9H9BsUccjsu2pCmEkOPjjaXeDQgY
+          - AIzaSyA5_iVawFQ8ABuTZNUdcwERLJv_a_p4wtM
+          - AIzaSyA4UrcGxgwQFTfaI3no3t7Lt1sjmdnP5sQ
+          - AIzaSyDSb51JiIcB6OJpwwMicseKRhhrOq1cS7g
+          - AIzaSyBF2RrAIm4a0mO64EShQfqfd2AFnzAvvuU
+          - AIzaSyBcE-OOIbhjyR83gm4r2MFCu4MJmprNXsw
+          - AIzaSyB8qGxt4ec15vitgn44duC5ucxaOi4FmqE
+          - AIzaSyA8vmApnrHNFE0bApF4hoZ11srVL_n0nvY
       - rule_id: api_keys.gocardless-api-token.gl
         name: api_keys.gocardless-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:gocardless)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}(live_(?i)[a-z0-9\\-_=]{40})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -580,6 +637,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: GRAFANA_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.grafana-cloud-api-token.gl
         name: api_keys.grafana-cloud-api-token.gl
         regex: "(?i)\\b(glc_[A-Za-z0-9+/]{32,400}={0,3})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -588,6 +647,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: GRAFANA_CLOUD_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.harness-api-key.gl
         name: api_keys.harness-api-key.gl
         regex: "(?:pat|sat)\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9]{24}\\.[a-zA-Z0-9]{20}"
@@ -601,6 +662,8 @@ guardrails_regex_rules:
         entropy: 3.5
         masking:
           placeholder: HASHICORP_TF_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.heroku-api-key-v2.gl
         name: api_keys.heroku-api-key-v2.gl
         regex: "\\b((HRKU-AA[0-9a-zA-Z_-]{58}))(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -609,6 +672,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: HEROKU_API_KEY_V2
+        validators:
+          - entropy
       - rule_id: api_keys.heroku-api-key.gl
         name: api_keys.heroku-api-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:heroku)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -631,6 +696,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: HUGGINGFACE_ORGANIZATION_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.infracost-api-token.gl
         name: api_keys.infracost-api-token.gl
         regex: "\\b(ico-[a-zA-Z0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -639,6 +706,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: INFRACOST_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.intercom-api-key.gl
         name: api_keys.intercom-api-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:intercom)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9=_\\-]{60})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -660,6 +729,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: LINEAR_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.lob-api-key.gl
         name: api_keys.lob-api-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:lob)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}((live|test)_[a-f0-9]{35})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -667,13 +738,6 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: LOB_API_KEY
-      - rule_id: api_keys.lob-pub-api-key.gl
-        name: api_keys.lob-pub-api-key.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:lob)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}((test|live)_pub_[a-f0-9]{31})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [test_pub, live_pub, _pub]
-        masking:
-          capture_groups: [1]
-          placeholder: LOB_PUB_API_KEY
       - rule_id: api_keys.mailchimp-api-key.gl
         name: api_keys.mailchimp-api-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:MailchimpSDK.initialize|mailchimp)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-f0-9]{32}-us\\d\\d)(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -690,7 +754,7 @@ guardrails_regex_rules:
           placeholder: MAILGUN_PRIVATE_API_TOKEN
       - rule_id: api_keys.mapbox-api-token.gl
         name: api_keys.mapbox-api-token.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:mapbox)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}(pk\\.[a-z0-9]{60}\\.[a-z0-9]{22})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
+        regex: "(?i:\\bmapbox_(?:access_|api_)?token)[\"']?[ \\t]*[:=][ \\t]*[\"']?((?:sk|tk)\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+)(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|$)"
         keywords: [mapbox]
         masking:
           capture_groups: [1]
@@ -724,6 +788,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: NOTION_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.octopus-deploy-api-key.gl
         name: api_keys.octopus-deploy-api-key.gl
         regex: "\\b(API-[A-Z0-9]{26})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -732,6 +798,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: OCTOPUS_DEPLOY_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.openai-api-key.gl
         name: api_keys.openai-api-key.gl
         regex: "\\b(sk-(?:proj|svcacct|admin)-(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})T3BlbkFJ(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})\\b|sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -740,6 +808,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: OPENAI_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.perplexity-api-key.gl
         name: api_keys.perplexity-api-key.gl
         regex: "\\b(pplx-[a-zA-Z0-9]{48})(?:[\\x60'\"\\s;]|\\\\[nr]|$|\\b)"
@@ -748,6 +818,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: PERPLEXITY_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.plaid-api-token.gl
         name: api_keys.plaid-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:plaid)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}(access-(?:sandbox|development|production)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -763,6 +835,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: PLANETSCALE_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.postman-api-token.gl
         name: api_keys.postman-api-token.gl
         regex: "\\b(PMAK-(?i)[a-f0-9]{24}\\-[a-f0-9]{34})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -771,6 +845,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: POSTMAN_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.prefect-api-token.gl
         name: api_keys.prefect-api-token.gl
         regex: "\\b(pnu_[a-zA-Z0-9]{36})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -779,6 +855,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: PREFECT_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.privateai-api-token.gl
         name: api_keys.privateai-api-token.gl
         regex: "[\\w.-]{0,50}?(?i:[\\w.-]{0,50}?(?:private[_-]?ai)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3})(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -787,6 +865,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: PRIVATEAI_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.pulumi-api-token.gl
         name: api_keys.pulumi-api-token.gl
         regex: "\\b(pul-[a-f0-9]{40})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -795,6 +875,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: PULUMI_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.readme-api-token.gl
         name: api_keys.readme-api-token.gl
         regex: "\\b(rdme_[a-z0-9]{70})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -803,6 +885,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: README_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.rubygems-api-token.gl
         name: api_keys.rubygems-api-token.gl
         regex: "\\b(rubygems_[a-f0-9]{48})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -811,6 +895,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: RUBYGEMS_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.scalingo-api-token.gl
         name: api_keys.scalingo-api-token.gl
         regex: "\\b(tk-us-[\\w-]{48})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -819,6 +905,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SCALINGO_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.sendgrid-api-token.gl
         name: api_keys.sendgrid-api-token.gl
         regex: "\\b(SG\\.(?i)[a-z0-9=_\\-\\.]{66})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -827,6 +915,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SENDGRID_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.sendinblue-api-token.gl
         name: api_keys.sendinblue-api-token.gl
         regex: "\\b(xkeysib-[a-f0-9]{64}\\-(?i)[a-z0-9]{16})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -835,6 +925,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SENDINBLUE_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.shippo-api-token.gl
         name: api_keys.shippo-api-token.gl
         regex: "\\b(shippo_(?:live|test)_[a-fA-F0-9]{40})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -843,6 +935,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SHIPPO_API_TOKEN
+        validators:
+          - entropy
       - rule_id: api_keys.snyk-api-token.gl
         name: api_keys.snyk-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:snyk[_.-]?(?:(?:api|oauth)[_.-]?)?(?:key|token))(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -871,6 +965,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: TWILIO_API_KEY
+        validators:
+          - entropy
       - rule_id: api_keys.twitch-api-token.gl
         name: api_keys.twitch-api-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:twitch)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{30})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -919,6 +1015,8 @@ guardrails_regex_rules:
         entropy: 3.8
         masking:
           placeholder: 1PASSWORD_SECRET_KEY
+        validators:
+          - entropy
       - rule_id: access_tokens.1password-service-account-token.gl
         name: access_tokens.1password-service-account-token.gl
         regex: ops_eyJ[a-zA-Z0-9+/]{250,}={0,3}
@@ -926,6 +1024,8 @@ guardrails_regex_rules:
         entropy: 4.0
         masking:
           placeholder: 1PASSWORD_SERVICE_ACCOUNT_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.age-secret-key.gl
         name: access_tokens.age-secret-key.gl
         regex: AGE-SECRET-KEY-1[QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L]{58}
@@ -947,6 +1047,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: ALIBABA_ACCESS_KEY_ID
+        validators:
+          - entropy
       - rule_id: access_tokens.alibaba-secret-key.gl
         name: access_tokens.alibaba-secret-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:alibaba)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{30})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -955,6 +1057,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: ALIBABA_SECRET_KEY
+        validators:
+          - entropy
       - rule_id: access_tokens.artifactory-reference-token.gl
         name: access_tokens.artifactory-reference-token.gl
         regex: "\\bcmVmd[A-Za-z0-9]{59}\\b"
@@ -962,6 +1066,8 @@ guardrails_regex_rules:
         entropy: 4.5
         masking:
           placeholder: ARTIFACTORY_REFERENCE_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.authress-service-client-access-key.gl
         name: access_tokens.authress-service-client-access-key.gl
         regex: "\\b((?:sc|ext|scauth|authress)_(?i)[a-z0-9]{5,30}\\.[a-z0-9]{4,6}\\.(?-i:acc)[_-][a-z0-9-]{10,32}\\.[a-z0-9+/_=-]{30,120})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -970,6 +1076,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: AUTHRESS_SERVICE_CLIENT_ACCESS_KEY
+        validators:
+          - entropy
       - rule_id: access_tokens.aws-access-token.gl
         name: access_tokens.aws-access-token.gl
         regex: "\\b((?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z2-7]{16})\\b"
@@ -978,6 +1086,10 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: AWS_ACCESS_TOKEN
+        validators:
+          - entropy
+        secret_exclusions:
+          - .+EXAMPLE$
       - rule_id: access_tokens.bittrex-access-key.gl
         name: access_tokens.bittrex-access-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:bittrex)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1000,6 +1112,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: CLOUDFLARE_ORIGIN_CA_KEY
+        validators:
+          - entropy
       - rule_id: access_tokens.codecov-access-token.gl
         name: access_tokens.codecov-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:codecov)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1043,6 +1157,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: DIGITALOCEAN_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.digitalocean-pat.gl
         name: access_tokens.digitalocean-pat.gl
         regex: "\\b(dop_v1_[a-f0-9]{64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1051,6 +1167,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: DIGITALOCEAN_PAT
+        validators:
+          - entropy
       - rule_id: access_tokens.droneci-access-token.gl
         name: access_tokens.droneci-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:droneci)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1066,6 +1184,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: ETSY_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.facebook-access-token.gl
         name: access_tokens.facebook-access-token.gl
         regex: "(?i)\\b(\\d{15,16}(\\||%)[0-9a-z\\-_]{27,40})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1074,6 +1194,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: FACEBOOK_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.facebook-page-access-token.gl
         name: access_tokens.facebook-page-access-token.gl
         regex: "\\b(EAA[MC](?i)[a-z0-9]{100,})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1082,6 +1204,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: FACEBOOK_PAGE_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.finnhub-access-token.gl
         name: access_tokens.finnhub-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:finnhub)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{20})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1103,13 +1227,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: FLUTTERWAVE_ENCRYPTION_KEY
-      - rule_id: access_tokens.flutterwave-public-key.gl
-        name: access_tokens.flutterwave-public-key.gl
-        regex: FLWPUBK_TEST-(?i)[a-h0-9]{32}-X
-        keywords: [flwpubk_test]
-        entropy: 2.0
-        masking:
-          placeholder: FLUTTERWAVE_PUBLIC_KEY
+        validators:
+          - entropy
       - rule_id: access_tokens.flutterwave-secret-key.gl
         name: access_tokens.flutterwave-secret-key.gl
         regex: FLWSECK_TEST-(?i)[a-h0-9]{32}-X
@@ -1117,6 +1236,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: FLUTTERWAVE_SECRET_KEY
+        validators:
+          - entropy
       - rule_id: access_tokens.freemius-secret-key.gl
         name: access_tokens.freemius-secret-key.gl
         regex: "(?i)[\"']secret_key[\"']\\s*=>\\s*[\"'](sk_[\\S]{29})[\"']"
@@ -1138,6 +1259,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITHUB_APP_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.github-fine-grained-pat.gl
         name: access_tokens.github-fine-grained-pat.gl
         regex: "github_pat_\\w{82}"
@@ -1145,6 +1268,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITHUB_FINE_GRAINED_PAT
+        validators:
+          - entropy
       - rule_id: access_tokens.github-pat.gl
         name: access_tokens.github-pat.gl
         regex: ghp_[0-9a-zA-Z]{36}
@@ -1152,6 +1277,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITHUB_PAT
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-cicd-job-token.gl
         name: access_tokens.gitlab-cicd-job-token.gl
         regex: glcbt-[0-9a-zA-Z]{1,5}_[0-9a-zA-Z_-]{20}
@@ -1159,6 +1286,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_CICD_JOB_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-deploy-token.gl
         name: access_tokens.gitlab-deploy-token.gl
         regex: "gldt-[0-9a-zA-Z_\\-]{20}"
@@ -1166,6 +1295,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_DEPLOY_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-feature-flag-client-token.gl
         name: access_tokens.gitlab-feature-flag-client-token.gl
         regex: "glffct-[0-9a-zA-Z_\\-]{20}"
@@ -1173,6 +1304,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_FEATURE_FLAG_CLIENT_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-feed-token.gl
         name: access_tokens.gitlab-feed-token.gl
         regex: "glft-[0-9a-zA-Z_\\-]{20}"
@@ -1180,6 +1313,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_FEED_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-incoming-mail-token.gl
         name: access_tokens.gitlab-incoming-mail-token.gl
         regex: "glimt-[0-9a-zA-Z_\\-]{25}"
@@ -1187,6 +1322,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_INCOMING_MAIL_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-kubernetes-agent-token.gl
         name: access_tokens.gitlab-kubernetes-agent-token.gl
         regex: "glagent-[0-9a-zA-Z_\\-]{50}"
@@ -1194,6 +1331,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_KUBERNETES_AGENT_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-pat-routable.gl
         name: access_tokens.gitlab-pat-routable.gl
         regex: "\\bglpat-[0-9a-zA-Z_-]{27,300}\\.[0-9a-z]{2}[0-9a-z]{7}\\b"
@@ -1201,6 +1340,8 @@ guardrails_regex_rules:
         entropy: 4.0
         masking:
           placeholder: GITLAB_PAT_ROUTABLE
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-pat.gl
         name: access_tokens.gitlab-pat.gl
         regex: "glpat-[\\w-]{20}"
@@ -1208,6 +1349,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_PAT
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-ptt.gl
         name: access_tokens.gitlab-ptt.gl
         regex: glptt-[0-9a-f]{40}
@@ -1215,6 +1358,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_PTT
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-rrt.gl
         name: access_tokens.gitlab-rrt.gl
         regex: "GR1348941[\\w-]{20}"
@@ -1222,6 +1367,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_RRT
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-runner-authentication-token-routable.gl
         name: access_tokens.gitlab-runner-authentication-token-routable.gl
         regex: "\\bglrt-t\\d_[0-9a-zA-Z_\\-]{27,300}\\.[0-9a-z]{2}[0-9a-z]{7}\\b"
@@ -1229,6 +1376,8 @@ guardrails_regex_rules:
         entropy: 4.0
         masking:
           placeholder: GITLAB_RUNNER_AUTHENTICATION_TOKEN_ROUTABLE
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-runner-authentication-token.gl
         name: access_tokens.gitlab-runner-authentication-token.gl
         regex: "glrt-[0-9a-zA-Z_\\-]{20}"
@@ -1236,6 +1385,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_RUNNER_AUTHENTICATION_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.gitlab-scim-token.gl
         name: access_tokens.gitlab-scim-token.gl
         regex: "glsoat-[0-9a-zA-Z_\\-]{20}"
@@ -1243,6 +1394,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: GITLAB_SCIM_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.gitter-access-token.gl
         name: access_tokens.gitter-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:gitter)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9_-]{40})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1258,6 +1411,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: GRAFANA_SERVICE_ACCOUNT_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.huggingface-access-token.gl
         name: access_tokens.huggingface-access-token.gl
         regex: "\\b(hf_(?i:[a-z]{34}))(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1266,6 +1421,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: HUGGINGFACE_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.jfrog-identity-token.gl
         name: access_tokens.jfrog-identity-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:jfrog|artifactory|bintray|xray)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1301,13 +1458,6 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: LAUNCHDARKLY_ACCESS_TOKEN
-      - rule_id: access_tokens.mailgun-pub-key.gl
-        name: access_tokens.mailgun-pub-key.gl
-        regex: "(?i)[\\w.-]{0,50}?(?:mailgun)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}(pubkey-[a-f0-9]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
-        keywords: [mailgun]
-        masking:
-          capture_groups: [1]
-          placeholder: MAILGUN_PUB_KEY
       - rule_id: access_tokens.mailgun-signing-key.gl
         name: access_tokens.mailgun-signing-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:mailgun)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-h0-9]{32}-[a-h0-9]{8}-[a-h0-9]{8})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1330,6 +1480,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: MAXMIND_LICENSE_KEY
+        validators:
+          - entropy
       - rule_id: access_tokens.microsoft-teams-webhook.gl
         name: access_tokens.microsoft-teams-webhook.gl
         regex: "https://[a-z0-9]+\\.webhook\\.office\\.com/webhookb2/[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}@[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}/IncomingWebhook/[a-z0-9]{32}/[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}"
@@ -1358,6 +1510,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: NPM_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.nytimes-access-token.gl
         name: access_tokens.nytimes-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:nytimes|new-york-times,|newyorktimes)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9=_\\-]{32})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1373,6 +1527,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: OKTA_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.openshift-user-token.gl
         name: access_tokens.openshift-user-token.gl
         regex: "\\b(sha256~[\\w-]{43})(?:[^\\w-]|\\z)"
@@ -1381,6 +1537,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: OPENSHIFT_USER_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.plaid-secret-key.gl
         name: access_tokens.plaid-secret-key.gl
         regex: "(?i)[\\w.-]{0,50}?(?:plaid)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{30})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1389,6 +1547,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: PLAID_SECRET_KEY
+        validators:
+          - entropy
       - rule_id: access_tokens.private-key.gl
         name: access_tokens.private-key.gl
         regex: "(?i)-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\\s\\S-]{64,}?KEY(?: BLOCK)?-----"
@@ -1402,6 +1562,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: PYPI_UPLOAD_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.rapidapi-access-token.gl
         name: access_tokens.rapidapi-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:rapidapi)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9_-]{50})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1424,6 +1586,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SENTRY_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.sentry-org-token.gl
         name: access_tokens.sentry-org-token.gl
         regex: "\\b(sntrys_eyJpYXQiO[a-zA-Z0-9+/]{10,200}(?:LCJyZWdpb25fdXJs|InJlZ2lvbl91cmwi|cmVnaW9uX3VybCI6)[a-zA-Z0-9+/]{10,200}={0,2}_[a-zA-Z0-9+/]{43})(?:[^a-zA-Z0-9+/]|\\z)"
@@ -1432,6 +1596,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SENTRY_ORG_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.sentry-user-token.gl
         name: access_tokens.sentry-user-token.gl
         regex: "\\b(sntryu_[a-f0-9]{64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1440,6 +1606,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SENTRY_USER_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.settlemint-application-access-token.gl
         name: access_tokens.settlemint-application-access-token.gl
         regex: "\\b(sm_aat_[a-zA-Z0-9]{16})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1448,6 +1616,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SETTLEMINT_APPLICATION_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.settlemint-personal-access-token.gl
         name: access_tokens.settlemint-personal-access-token.gl
         regex: "\\b(sm_pat_[a-zA-Z0-9]{16})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1456,6 +1626,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SETTLEMINT_PERSONAL_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.settlemint-service-access-token.gl
         name: access_tokens.settlemint-service-access-token.gl
         regex: "\\b(sm_sat_[a-zA-Z0-9]{16})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1464,6 +1636,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SETTLEMINT_SERVICE_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.shopify-access-token.gl
         name: access_tokens.shopify-access-token.gl
         regex: shpat_[a-fA-F0-9]{32}
@@ -1471,6 +1645,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SHOPIFY_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.shopify-custom-access-token.gl
         name: access_tokens.shopify-custom-access-token.gl
         regex: shpca_[a-fA-F0-9]{32}
@@ -1478,6 +1654,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SHOPIFY_CUSTOM_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.shopify-private-app-access-token.gl
         name: access_tokens.shopify-private-app-access-token.gl
         regex: shppa_[a-fA-F0-9]{32}
@@ -1485,6 +1663,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SHOPIFY_PRIVATE_APP_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.slack-app-token.gl
         name: access_tokens.slack-app-token.gl
         regex: "(?i)xapp-\\d-[A-Z0-9]+-\\d+-[a-z0-9]+"
@@ -1492,6 +1672,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SLACK_APP_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.slack-bot-token.gl
         name: access_tokens.slack-bot-token.gl
         regex: xoxb-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*
@@ -1499,6 +1681,8 @@ guardrails_regex_rules:
         entropy: 3.0
         masking:
           placeholder: SLACK_BOT_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.slack-config-access-token.gl
         name: access_tokens.slack-config-access-token.gl
         regex: "(?i)xoxe.xox[bp]-\\d-[A-Z0-9]{163,166}"
@@ -1506,6 +1690,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SLACK_CONFIG_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.slack-legacy-bot-token.gl
         name: access_tokens.slack-legacy-bot-token.gl
         regex: xoxb-[0-9]{8,14}-[a-zA-Z0-9]{18,26}
@@ -1513,6 +1699,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SLACK_LEGACY_BOT_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.slack-legacy-token.gl
         name: access_tokens.slack-legacy-token.gl
         regex: "xox[os]-\\d+-\\d+-\\d+-[a-fA-F\\d]+"
@@ -1520,6 +1708,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SLACK_LEGACY_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.slack-legacy-workspace-token.gl
         name: access_tokens.slack-legacy-workspace-token.gl
         regex: "xox[ar]-(?:\\d-)?[0-9a-zA-Z]{8,48}"
@@ -1527,6 +1717,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SLACK_LEGACY_WORKSPACE_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.slack-user-token.gl
         name: access_tokens.slack-user-token.gl
         regex: xox[pe](?:-[0-9]{10,13}){3}-[a-zA-Z0-9-]{28,34}
@@ -1534,6 +1726,8 @@ guardrails_regex_rules:
         entropy: 2.0
         masking:
           placeholder: SLACK_USER_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.slack-webhook-url.gl
         name: access_tokens.slack-webhook-url.gl
         regex: (?:https?://)?hooks.slack.com/(?:services|workflows|triggers)/[A-Za-z0-9+/]{43,56}
@@ -1542,12 +1736,14 @@ guardrails_regex_rules:
           placeholder: SLACK_WEBHOOK_URL
       - rule_id: access_tokens.sourcegraph-access-token.gl
         name: access_tokens.sourcegraph-access-token.gl
-        regex: "(?i)\\b(\\b(sgp_(?:[a-fA-F0-9]{16}|local)_[a-fA-F0-9]{40}|sgp_[a-fA-F0-9]{40}|[a-fA-F0-9]{40})\\b)(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
+        regex: "(?i)(?:\\b(sgp_(?:(?:[a-f0-9]{16}|local)_)?[a-f0-9]{40})|\\b(?:sourcegraph(?:_access)?_token|sourcegraph[ \\t]+token)[\"']?[ \\t]*[:=][ \\t]*[\"']?([a-f0-9]{40}))(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|$)"
         keywords: [sgp_, sourcegraph]
         entropy: 3.0
         masking:
-          capture_groups: [1]
+          capture_groups: [1, 2]
           placeholder: SOURCEGRAPH_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.square-access-token.gl
         name: access_tokens.square-access-token.gl
         regex: "\\b((?:EAAA|sq0atp-)[\\w-]{22,60})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1556,6 +1752,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SQUARE_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.squarespace-access-token.gl
         name: access_tokens.squarespace-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:squarespace)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1571,6 +1769,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: STRIPE_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.sumologic-access-token.gl
         name: access_tokens.sumologic-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:(?-i:[Ss]umo|SUMO))(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{64})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1579,6 +1779,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: SUMOLOGIC_ACCESS_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.travisci-access-token.gl
         name: access_tokens.travisci-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:travis)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{22})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1601,6 +1803,8 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: VAULT_BATCH_TOKEN
+        validators:
+          - entropy
       - rule_id: access_tokens.vault-service-token.gl
         name: access_tokens.vault-service-token.gl
         regex: "\\b((?:hvs\\.[\\w-]{90,120}|s\\.(?i:[a-z0-9]{24})))(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"
@@ -1609,6 +1813,10 @@ guardrails_regex_rules:
         masking:
           capture_groups: [1]
           placeholder: VAULT_SERVICE_TOKEN
+        validators:
+          - entropy
+        secret_exclusions:
+          - "s\\.[A-Za-z]{24}"
       - rule_id: access_tokens.yandex-access-token.gl
         name: access_tokens.yandex-access-token.gl
         regex: "(?i)[\\w.-]{0,50}?(?:yandex)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}(t1\\.[A-Z0-9a-z_-]+[=]{0,2}\\.[A-Z0-9a-z_-]{86}[=]{0,2})(?:[\\x60'\"\\s,;:!?()\\[\\]{}]|\\\\[nr]|$)"

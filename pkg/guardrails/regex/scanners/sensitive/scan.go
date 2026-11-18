@@ -197,6 +197,16 @@ func scanRule(text string, cr registry.CompiledRule) []Match {
 		if !validation.Validate(m.FullText, cr.Rule) {
 			continue
 		}
+		excluded := false
+		for _, re := range cr.SecretExclusionREs {
+			if re.MatchString(m.FullText) {
+				excluded = true
+				break
+			}
+		}
+		if excluded {
+			continue
+		}
 
 		matches = append(matches, m)
 	}

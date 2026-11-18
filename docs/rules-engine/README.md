@@ -21,6 +21,7 @@ type Rule struct {
     MinLength  int
     Entropy    float64         // порог для валидатора энтропии
     Banlist    []string        // приводится к нижнему регистру при загрузке; для валидатора banlist
+    SecretExclusions []string  // yaml: secret_exclusions; builtin-file-only, не сериализуется в JSON
     DefaultOn  bool
     Masking    MaskingConfig   // CaptureGroups []int (с 1; пусто = всё совпадение), Placeholder string
 }
@@ -33,11 +34,11 @@ type Rule struct {
 
 ## Источники правил
 
-1. `configs/guardrails_regex_rules.yaml` — ручные (~46 правил: ФИО (3 формата), паспорт, СНИЛС, ИНН, ОГРН, ОГРНИП, КПП, CVC, адрес, телефон, email, карта с
+1. `configs/guardrails_regex_rules.yaml` — ручные правила: ФИО (3 формата), паспорт, СНИЛС, ИНН, ОГРН, ОГРНИП, КПП, CVC, адрес, телефон, email, карта с
    контрольными суммами — СНИЛС, ИНН физлица/юрлица, ОГРН/ОГРНИП, паспорт; платёжные
    карты с Luhn; IBAN mod-97; email'ы; телефоны РФ; IP).
-2. `configs/guardrails_regex_rules.gitleaks.generated.yaml` — ~220 правил,
-   сгенерированных из `configs/gitleaks.toml` через `cmd/rulesgen import-gitleaks`
+2. `configs/guardrails_regex_rules.gitleaks.generated.yaml` — провайдерские правила,
+   сгенерированные из `configs/gitleaks.toml` через `cmd/rulesgen import-gitleaks`
    (`make rules-gen`). **Генерируется — не править руками.**
 3. Кастомные правила из хранилища (созданы через API), подмешиваются в рантайме
    reloader'ом (`internal/service/rulesreload`), который триггерят сценарии
@@ -52,8 +53,8 @@ type Rule struct {
 
 ```mermaid
 flowchart TD
-    YAML["configs/guardrails_regex_rules.yaml<br/>46 ручных правил"] --> LOAD["rule.LoadAllFromFiles<br/>дедуп путей, отказ при дубле rule_id"]
-    GEN["configs/guardrails_regex_rules.gitleaks.generated.yaml<br/>220 сгенерированных правил"] --> LOAD
+    YAML["configs/guardrails_regex_rules.yaml<br/>ручные правила"] --> LOAD["rule.LoadAllFromFiles<br/>дедуп путей, отказ при дубле rule_id"]
+    GEN["configs/guardrails_regex_rules.gitleaks.generated.yaml<br/>провайдерские правила"] --> LOAD
     LOAD --> FILES["fileRules — неизменяемый встроенный набор"]
     STORE["store.ListRules<br/>кастомные правила из API"] --> MERGE
     DIS["store.ListDisabledRuleIDs"] --> MERGE
@@ -69,8 +70,8 @@ flowchart TD
 ## Реестр (`pkg/guardrails/regex/registry`)
 
 `Registry` — неизменяемый скомпилированный снимок: `rules []CompiledRule` + индексы
-`byDataType`, `byID`. `CompiledRule` добавляет `Re` (скомпилированный regex),
-`PlaceholderRe` и `PlaceholderLen` (см. демаскирование ниже).
+`byDataType`, `byID`. `CompiledRule` добавляет `Re`, `SecretExclusionREs` (скомпилированные
+regex), `PlaceholderRe` и `PlaceholderLen` (см. демаскирование ниже).
 
 Пути конструирования — **одна реализация валидации**:
 
@@ -79,7 +80,9 @@ flowchart TD
   `CompileRule(reg, rule) (CompiledRule, error)` — с возвратом ошибки; используются
   сервисом правил и (косвенно) API. Проверки: непустой ID, отсутствие дубля ID,
   известные валидаторы (`validation.IsKnown`), компиляция regex, группы захвата в
-  границах, ограниченность placeholder-regex.
+  границах, ограниченность placeholder-regex. `secret_exclusions` компилируются один раз
+  с тем же `(?m)`, что и основной regex; пустой или невалидный шаблон — ошибка с ID
+  правила и индексом исключения. Загрузчик не меняет регистр этих шаблонов.
 
 `Reloadable` (`reloadable.go`) оборачивает снимок в `atomic.Pointer` с делегирующими
 методами чтения, поэтому `sensitive.Scanner`, `placeholder.Scanner`, `mask.UseCase` и
@@ -120,7 +123,8 @@ flowchart TD
 - `FindAllStringSubmatchIndex` → кандидат; из совпадения выбирается семантический span
   по `Masking.CaptureGroups` (побеждает первая совпавшая группа; пусто = всё
   совпадение), затем применяются `MinLength` и `validation.Validate` (контрольные
-  суммы/энтропия/banlist/формат);
+  суммы/энтропия/banlist/формат); `secret_exclusions` отбрасывают только выбранный
+  `FullText`, не строку/документ и не совпадения других правил;
 - `resolveConflicts`: пересекающиеся совпадения сливаются в один объединённый span
   `[minStart, maxEnd)`, атрибутируемый самому длинному составляющему (его тип
   плейсхолдера помечает значение). Маскируется объединение, а не «победитель»:
@@ -153,6 +157,45 @@ flowchart TD
 
 `luhn, snils, inn_person, inn_org, ogrn, ogrnip, iban_mod97, email_ascii, payment_card,
 entropy, banlist, ip_v4, ip_v6, ip_public, ip_private`.
+
+## Токены: контекст и точность
+
+Неизвестные токены обнаруживаются только при явном контексте: точное секретное
+поле (`api_key`, `access_token`, `client_secret`, `token` и поддерживаемые варианты)
+с `:`/`=`, либо метка вроде `токен доступа:`/`API key:`. Значение — литерал
+16–512 символов, в кавычках или без них; буквенные значения допустимы без цифр
+и entropy gate. Голые неизвестные длинные строки, Java-идентификаторы и хеши не
+считаются токенами. Явно секретное поле с именем класса в строковом литерале
+неоднозначно и может маскироваться. OTP/recovery — отдельное правило для 4–8 цифр
+непосредственно после явной метки, без поиска числа дальше по тексту.
+
+`secret_exclusions` — локальные regex-исключения выбранного значения только для
+встроенных YAML-правил. Custom-rule API, protobuf и JSON-хранилище ими не расширены.
+Контекстные правила исключают точные placeholders, ссылки `System.getenv`,
+`process.env.NAME` и подтверждённые публичные Mapbox `pk`, Lob publishable,
+Flutterwave public и legacy Mailgun validation keys. Произвольный `client_id`
+не секрет; если он записан под `api_key`/Bearer, роль без метаданных неразличима.
+AWS access key IDs, `id_token`, private/signing и New Relic browser keys не
+исключаются по одному сходству названий.
+
+Из импорта удалены подтверждённые public/client-ID детекторы; Mapbox `sk`/`tk`,
+legacy Twilio/Sourcegraph/Atlassian требуют локального секретного поля. Современные
+самостоятельные провайдерские форматы сохранены. Bedrock short-lived маскируется
+полностью, включая Base64 подписанного URL, а не только фиксированный host-prefix.
+Импорт включает валидатор `entropy` только при включённой политике и пороге > 0;
+политика паролей и неявная валидация custom rules не меняются. Переносятся только
+проверенные secret-target regex allowlists AWS, curl user, GCP, NuGet и Vault;
+дополнительный scope/condition/path/stopword/commit у них останавливает генерацию.
+
+Это локальные эвристики: внешние API и криптографическая проверка JWT не вызываются.
+Совпадение не доказывает действительность credentials; отсутствие совпадения не
+гарантирует отсутствие секрета.
+
+Приёмка после deployment: в sandbox/Jira-like Markdown вставить Java-класс,
+номер задачи BFAM, SHA, public key и synthetic secret с явной меткой. Ожидается
+маскирование только секретного значения, без повреждения JSON/Markdown punctuation.
+Локальный `/v1/scan` smoke не заменяет ручную QA Jira/Confluence.
+
 
 ## Демаскирование
 

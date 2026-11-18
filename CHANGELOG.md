@@ -70,6 +70,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Replace unknown bare-token catch-alls with explicit secret assignments/prose
+  and a separate OTP rule; Java identifiers and unrelated hashes stay visible.
+  Alphabetic secrets remain supported in explicit context without a digit gate.
+- Restore imported entropy validation and reviewed candidate-only allowlists.
+  Builtin YAML `secret_exclusions` filter selected values without changing
+  custom-rule API/JSON contracts or suppressing neighboring provider findings.
+- Narrow header, JSON, Twilio, Sourcegraph and legacy Atlassian contexts; mask
+  complete Bedrock short-lived tokens. Stop treating confirmed public client IDs
+  and public/publishable keys as secrets; contextual Mapbox `sk`/`tk` remain detected.
+  Deployment acceptance scenarios are in `docs/rules-engine/README.md`.
 - Anthropic `/v1/messages` requests: `tool_use.input` is now masked per decoded
   string leaf. Previously the raw JSON object text was regex-scanned: PII
   containing quotes/backslashes/escapes could be missed entirely, and when a

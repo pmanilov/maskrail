@@ -16,9 +16,10 @@ import (
 // CompiledRule is a Rule with its pre-compiled *regexp.Regexp and placeholder policy.
 type CompiledRule struct {
 	rule.Rule
-	Re             *regexp.Regexp
-	PlaceholderRe  *regexp.Regexp
-	PlaceholderLen int
+	Re                 *regexp.Regexp
+	PlaceholderRe      *regexp.Regexp
+	PlaceholderLen     int
+	SecretExclusionREs []*regexp.Regexp
 
 	// PrefilterKeywords holds the rule's keywords, lowercased, but ONLY when the
 	// regex guarantees at least one of them appears in every match. Empty when the
@@ -243,6 +244,17 @@ func CompileRule(reg *Registry, rl rule.Rule) (CompiledRule, error) {
 	if err := validateMaskingConfig(rl, re); err != nil {
 		return CompiledRule{}, err
 	}
+	var exclusions []*regexp.Regexp
+	for i, pattern := range rl.SecretExclusions {
+		if pattern == "" {
+			return CompiledRule{}, fmt.Errorf("compile guardrails rule %q secret exclusion %d: empty pattern", rl.ID, i)
+		}
+		exclusion, err := regexp.Compile("(?m)" + pattern)
+		if err != nil {
+			return CompiledRule{}, fmt.Errorf("compile guardrails rule %q secret exclusion %d: %w", rl.ID, i, err)
+		}
+		exclusions = append(exclusions, exclusion)
+	}
 
 	placeholderRe, placeholderLen, err := compilePlaceholderRegex(rl)
 	if err != nil {
@@ -250,11 +262,12 @@ func CompileRule(reg *Registry, rl rule.Rule) (CompiledRule, error) {
 	}
 
 	return CompiledRule{
-		Rule:              rl,
-		Re:                re,
-		PlaceholderRe:     placeholderRe,
-		PlaceholderLen:    placeholderLen,
-		PrefilterKeywords: prefilterKeywords(rl.Regex, rl.Keywords),
+		Rule:               rl,
+		Re:                 re,
+		SecretExclusionREs: exclusions,
+		PlaceholderRe:      placeholderRe,
+		PlaceholderLen:     placeholderLen,
+		PrefilterKeywords:  prefilterKeywords(rl.Regex, rl.Keywords),
 	}, nil
 }
 
